@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataCenter Atlas</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>{{STYLES}}</style>
+</head>
+<body>
+
+<header>
+  <div class="hd-top">
+    <div class="brand">DataCenter <span>Atlas</span></div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="국가 · 기업 검색" autocomplete="off" aria-label="국가 또는 기업 검색" role="combobox" aria-expanded="false" aria-controls="searchResults">
+      <div class="search-results" id="searchResults" role="listbox" aria-label="검색 결과"></div>
+    </div>
+    <div class="hd-stats">
+      <div class="st"><div class="n" id="stCount">—</div><div class="l" id="stCountLabel">수록 지점</div></div>
+      <div class="st"><div class="n" id="stTop">—</div><div class="l">1위 국가</div></div>
+    </div>
+  </div>
+  <div class="tabs" role="tablist" aria-label="화면 전환">
+    <button class="tab on" data-t="map" role="tab" aria-selected="true" aria-controls="mapPane">지도</button>
+    <button class="tab" data-t="analysis" role="tab" aria-selected="false" aria-controls="analysisPane">분석</button>
+    <button class="tab" data-t="compare" role="tab" aria-selected="false" aria-controls="comparePane">비교</button>
+  </div>
+</header>
+
+<div class="notice-banner" id="dataBanner">
+  <span class="nb-icon">ⓘ</span>
+  <span class="nb-text"><b>8개 지표 중 7개는 공개 통계 원자료를 사용합니다.</b>
+    전기요금·재생에너지·정전시간·인터넷속도·재해위험·땅값·기온은 실제 공표값을 정규화했고,
+    냉각 수자원만 배정값입니다.<span class="nb-long">
+    비교 탭의 출처 표에서 항목별 단위와 구분을 확인할 수 있습니다.</span></span>
+  <button class="nb-close" id="nbClose" aria-label="안내 닫기">✕</button>
+</div>
+
+<!-- 지도 -->
+<div class="pane on" id="mapPane">
+  <div id="map">
+    <div class="ov legend">
+      <div class="title" id="legendTitle">데이터센터 적합도</div>
+      <div id="legendBody"></div>
+    </div>
+    <div class="ov site-filter" id="siteFilter"></div>
+    <div class="ov filter-panel">
+      <div class="f-title">색상 필터</div>
+      <select id="filterSelect" aria-label="지도 색상 필터"></select>
+      <div class="f-hint" id="gridHint" style="display:none">축소하면 색상 분포가 다시 표시됩니다</div>
+    </div>
+    <div class="ov zoom-ctrl">
+      <button id="zoomIn" aria-label="지도 확대">+</button>
+      <button id="zoomOut" aria-label="지도 축소">−</button>
+      <button id="zoomReset" style="font-size:14px" aria-label="처음 화면으로">⟲</button>
+      <button id="mapStyleBtn" style="font-size:14px" aria-label="지도 스타일 바꾸기">◧</button>
+    </div>
+    <div class="ov map-notice" id="mapNotice">
+      <b>지도 배경을 불러오지 못했습니다.</b><br>
+      이 미리보기 환경에서 외부 지도 서버 요청이 차단된 상태입니다.
+      파일을 내려받아 브라우저에서 열면 정상적으로 표시됩니다.<br><br>
+      <span style="color:#7A8798">지도 배경과 무관하게 <b>분석 · 비교 탭은 정상 동작</b>합니다.
+      색상 필터와 마커, 지점 평가도 그대로 쓸 수 있습니다.</span>
+    </div>
+  </div>
+  <div class="mpanel" id="mpanel">
+    <div class="mpanel-in" id="mpanelIn">
+      <div class="placeholder">
+        <div class="glyph">◌</div>
+        <p>마커를 누르면 해당 데이터센터의 입지 평가가 표시됩니다.<br><br>
+        지도의 <b>아무 곳이나 길게 누르면</b> 그 지점에 데이터센터를 짓는 것이 적합한지 평가해 줍니다.
+        (PC에서는 마우스 오른쪽 클릭)<br><br>
+        <span style="font-size:11.5px" id="siteCountNote">전 세계에는 약 11,000개의 데이터센터가 있습니다.
+        이 지도에는 주요 사업자의 대표 캠퍼스만 표시합니다.</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 분석 -->
+<div class="pane" id="analysisPane"><div class="scroll"><div class="inner">
+  <section>
+    <div class="sec-head"><h2>데이터 연동 상태</h2>
+      <div class="note">어떤 값이 실측이고 어떤 값이 추정인지 표시합니다</div></div>
+    <div class="data-panel" id="dataPanel"></div>
+  </section>
+
+  <div class="live-bar" id="liveBar"></div>
+
+  <section>
+    <div class="sec-head"><h2>사용 목적</h2>
+      <div class="note">목적에 따라 가중치가 자동으로 바뀝니다</div></div>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>기후 시나리오</h2>
+      <div class="note">기온 상승이 입지 점수에 주는 영향을 비교합니다</div></div>
+    <div class="chips" id="eras"></div>
+    <div class="impact" id="eraNote" style="margin-top:12px"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>평가 가중치</h2>
+      <div class="mode-toggle">
+        <button class="mode-btn" id="modeBasic" aria-pressed="false">간단히</button>
+        <button class="mode-btn on" id="modeAdv" aria-pressed="true">직접 조절</button>
+      </div></div>
+    <div class="mode-hint" id="modeHint" style="display:none">목적 프리셋만으로 분석합니다.
+      항목별로 직접 조절하려면 <b>직접 조절</b>을 누르세요.</div>
+    <label class="decorr">
+      <input type="checkbox" id="decorrToggle">
+      <span>지표 중복 보정</span>
+      <em id="decorrNote"></em>
+    </label>
+    <div class="corr-box" id="corrBox"></div>
+    <div class="weights" id="weights"></div>
+    <div class="impact" id="impact"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>국가 순위</h2>
+      <div class="note">행을 누르면 아래에 상세 분석이 표시됩니다</div></div>
+    <div class="rank-list" id="rankList"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>AI 분석 의견</h2>
+      <div class="note">선택한 국가와 현재 가중치를 근거로 작성됩니다</div></div>
+    <div class="ai-box" id="aiBox"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>상세 분석</h2>
+      <div class="note">각 항목의 점수 근거와 출처를 함께 표시합니다</div></div>
+    <div class="detail" id="detail"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>총점이 나온 과정</h2>
+      <div class="note">항목별 점수 × 가중치가 총점에 기여하는 몫</div></div>
+    <div class="formula-box" id="formulaBox"></div>
+    <div class="break-box" id="breakBox"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>운영 시뮬레이션</h2>
+      <div class="note">전력 소비 · 냉각 · 탄소배출 · 비용 추정</div></div>
+    <div class="sim-box" id="simBox"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>실제 데이터센터와 비교</h2>
+      <div class="note">기업들의 실제 선택과 모델 점수를 대조합니다</div></div>
+    <div class="site-cmp" id="siteCmp"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>보고서</h2>
+      <div class="note">현재 분석 결과를 문서로 저장합니다</div></div>
+    <div class="rep-actions">
+      <button class="mini-btn" id="repPreview">미리보기</button>
+      <button class="mini-btn primary" id="repDownload">Markdown 내려받기</button>
+      <button class="mini-btn" id="repPDF">PDF로 저장</button>
+      <button class="mini-btn" id="repStudy">탐구 보고서 생성</button>
+      <button class="mini-btn" id="repCSV">CSV 내려받기</button>
+      <button class="mini-btn" id="repShare">분석 결과 링크 복사</button>
+    </div>
+    <pre class="report-box" id="reportBox" style="display:none"></pre>
+  </section>
+</div></div></div>
+
+<!-- 비교 -->
+<div class="pane" id="comparePane"><div class="scroll"><div class="inner">
+  <section>
+    <div class="sec-head"><h2>국가 비교</h2>
+      <div class="note">현재 가중치 기준으로 총점이 계산됩니다</div></div>
+    <div class="note" style="font-size:12px;color:var(--dim);margin-bottom:10px">
+      국가를 눌러 선택하세요 (최대 5개)</div>
+    <div class="pick-box" id="cmpPick" role="group" aria-label="비교할 국가 선택"></div>
+    <div class="cmp-radar" id="cmpRadar"></div>
+    <div class="trend-box" id="trendBox"></div>
+    <div id="cmpTable"></div>
+  </section>
+  <section style="margin-top:30px">
+    <div class="sec-head"><h2>데이터 출처</h2></div>
+    <div id="srcList"></div>
+  </section>
+
+  <div class="disclaimer">
+    수록된 수치는 계산 구조를 확인하기 위한 <b>예시 값</b>입니다. 실제 보고서에 쓰려면
+    기온은 기상청·NOAA, 전력 단가는 IEA, 재생에너지 비율은 Ember·Our World in Data,
+    인터넷 속도는 Ookla, 재해 위험도는 WorldRiskIndex 자료로 교체해야 합니다.
+  </div>
+</div></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>{{SCRIPT}}</script>
+</body>
+</html>
