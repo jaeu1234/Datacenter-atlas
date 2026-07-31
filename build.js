@@ -24,10 +24,12 @@ const out    = tpl.replace('{{STYLES}}', ()=>styles).replace('{{SCRIPT}}', ()=>s
 
 fs.mkdirSync('dist',{recursive:true});
 fs.writeFileSync('dist/datacenter-atlas.html', out);
+// GitHub Pages 는 저장소 루트의 index.html 을 그대로 서빙한다
+fs.writeFileSync('index.html', out);
 
 // 구문 검사
 try{ new Function(script); }
 catch(e){ console.error('✘ 구문 오류:', e.message); process.exit(1); }
 
-console.log('✔ 빌드 완료  dist/datacenter-atlas.html  ' + (out.length/1024).toFixed(1) + 'KB');
+console.log('✔ 빌드 완료  index.html · dist/datacenter-atlas.html  ' + (out.length/1024).toFixed(1) + 'KB');
 ORDER.forEach(f=>console.log('   ' + f.padEnd(36) + (fs.statSync(f).size/1024).toFixed(1) + 'KB'));

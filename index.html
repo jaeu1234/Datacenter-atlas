@@ -1,0 +1,3341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataCenter Atlas</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A1930; --bg-2:#0D2141; --card:#12294B; --line:rgba(133,178,224,0.16);
+  --ink:#EAF3FF; --muted:#8FAECC; --dim:#5A7CA0;
+  --good:#4FBF87; --mid:#E0A63F; --bad:#D2634A; --accent:#57C7E8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Inter','Apple SD Gothic Neo',sans-serif;
+  display:flex; flex-direction:column; height:100dvh; overflow:hidden;
+}
+
+/* ---------- header + tabs ---------- */
+header{
+  flex-shrink:0; border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0A1930,#0C1F3B);
+  padding:11px 18px 0;
+}
+.hd-top{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.hd-top .brand{flex-shrink:0;}
+.hd-stats{flex-shrink:0;}
+.brand{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600;white-space:nowrap;}
+.brand span{color:var(--good);}
+.hd-stats{display:flex;gap:18px;font-family:'IBM Plex Mono',monospace;}
+.hd-stats .st{text-align:right;}
+.hd-stats .st .n{font-size:15px;font-weight:600;}
+.hd-stats .st .l{font-size:8.5px;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;margin-top:1px;}
+.tabs{display:flex;gap:2px;margin-top:9px;}
+.tab{
+  background:none;border:none;color:var(--dim);font-family:inherit;font-size:13px;
+  padding:9px 15px;cursor:pointer;border-bottom:2px solid transparent;font-weight:500;
+}
+.tab:hover{color:var(--muted);}
+.tab.on{color:var(--ink);border-bottom-color:var(--good);font-weight:600;}
+
+/* ---------- panes ---------- */
+.pane{flex:1;min-height:0;display:none;}
+.pane.on{display:flex;}
+.scroll{flex:1;overflow-y:auto;padding:20px 18px 50px;}
+.inner{max-width:1080px;margin:0 auto;}
+
+/* ---------- map ---------- */
+#mapPane{position:relative;}
+#map{flex:1;height:100%;background:#AADAFF;}
+.leaflet-container{background:#AADAFF;}
+.leaflet-tile-pane{filter:saturate(1.05) brightness(1.02);}
+.leaflet-control-zoom{display:none;}
+.leaflet-control-attribution{background:rgba(255,255,255,0.75)!important;font-size:9px!important;}
+
+.country-label{
+  position:absolute;transform:translate(-50%,-50%);white-space:nowrap;text-align:center;
+  font-family:'Inter','Apple SD Gothic Neo',sans-serif;
+  font-size:var(--label-size,11px);font-weight:500;line-height:1.2;color:#4A5563;
+  letter-spacing:-0.01em;pointer-events:none;
+  text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff,
+              0 -1px 0 #fff,0 1px 0 #fff,-1px 0 0 #fff,1px 0 0 #fff;
+}
+.dc-marker{width:16px;height:16px;position:relative;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;
+  transform:scale(var(--mk-scale,1));transition:transform .2s ease;}
+.dc-marker .ring{position:absolute;inset:-8px;border-radius:50%;border:1px solid currentColor;opacity:0.45;}
+.dc-marker .ring2{position:absolute;inset:-16px;border-radius:50%;border:1px solid currentColor;opacity:0.18;}
+.dc-marker .core{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;}
+.dc-marker.selected .core{width:10px;height:10px;}
+.dc-marker.selected .ring{animation:pulse 1.6s ease-out infinite;}
+@keyframes pulse{0%{transform:scale(0.7);opacity:0.55;}100%{transform:scale(1.9);opacity:0;}}
+
+.dc-marker.multi .core{width:10px;height:10px;}
+.mk-count{position:absolute;top:-9px;right:-11px;background:#12294B;color:#EAF3FF;
+  border:1.5px solid currentColor;border-radius:999px;font-size:9.5px;font-weight:700;
+  min-width:16px;height:16px;line-height:13px;text-align:center;padding:0 3px;
+  font-family:'IBM Plex Mono',monospace;}
+
+.grp-list{display:flex;flex-direction:column;gap:4px;margin-top:9px;}
+.grp-item{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  background:rgba(133,178,224,0.06);border:1px solid var(--line);border-radius:6px;
+  padding:8px 11px;cursor:pointer;font-family:inherit;font-size:12.5px;color:var(--ink);
+  transition:border-color .15s,background .15s;text-align:left;}
+.grp-item:hover{border-color:var(--accent);}
+.grp-item.on{border-color:var(--good);background:rgba(79,191,135,0.1);}
+.gi-nm{font-weight:600;} .gi-nm em{font-style:normal;font-weight:400;color:var(--muted);margin-left:5px;}
+.gi-sc{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+
+.probe-pin{position:relative;width:18px;height:18px;color:#2F6FE0;display:flex;
+  align-items:center;justify-content:center;}
+.probe-core{width:10px;height:10px;border-radius:50%;background:currentColor;
+  border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);}
+.probe-ring{position:absolute;inset:-9px;border-radius:50%;border:2px solid currentColor;
+  opacity:0.5;animation:pulse 1.8s ease-out infinite;}
+
+/* map overlays */
+.ov{position:absolute;z-index:1000;background:#fff;border-radius:4px;
+  box-shadow:0 1px 5px rgba(0,0,0,0.28);color:#3B4551;}
+.legend{left:14px;top:14px;padding:10px 13px;font-size:12px;}
+.legend .title{font-size:9.5px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
+  color:#7A8798;margin-bottom:8px;}
+.legend .row{display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:500;}
+.legend .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.scale{display:flex;height:9px;border-radius:2px;overflow:hidden;margin-top:2px;width:150px;}
+.scale i{flex:1;}
+.scale-lb{display:flex;justify-content:space-between;font-size:10px;color:#7A8798;margin-top:4px;}
+
+.filter-panel{left:14px;top:auto;bottom:14px;padding:10px 12px;max-width:210px;}
+.f-title{font-size:9.5px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
+  color:#7A8798;margin-bottom:8px;}
+.f-hint{font-size:10.5px;color:#7A8798;margin-top:8px;line-height:1.45;}
+
+.zoom-ctrl{right:14px;bottom:14px;display:flex;flex-direction:column;overflow:hidden;padding:0;}
+.zoom-ctrl button{width:40px;height:40px;border:none;background:#fff;color:#333;
+  font-size:18px;cursor:pointer;font-family:inherit;}
+.zoom-ctrl button:hover{background:#f1f1f1;}
+.zoom-ctrl button+button{border-top:1px solid #e6e6e6;}
+
+.map-notice{display:none;top:50%;left:50%;transform:translate(-50%,-50%);max-width:340px;
+  text-align:center;padding:16px 20px;font-size:13px;line-height:1.6;}
+
+/* map side panel */
+.mpanel{width:0;height:100%;overflow:hidden;background:var(--bg-2);
+  border-left:1px solid var(--line);transition:width .3s cubic-bezier(.4,0,.2,1);flex-shrink:0;}
+.mpanel.open{width:360px;}
+.mpanel-in{width:360px;height:100%;padding:22px 20px;overflow-y:auto;}
+.p-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;
+  color:var(--dim);text-transform:uppercase;display:flex;justify-content:space-between;gap:8px;}
+.p-close{cursor:pointer;}
+.p-close:hover{color:var(--ink);}
+.mpanel h2{font-family:'Space Grotesk',sans-serif;font-size:21px;font-weight:600;margin-top:9px;line-height:1.25;}
+.mpanel .sub{color:var(--muted);font-size:12.5px;margin-top:4px;}
+.score-block{margin-top:18px;padding-top:15px;border-top:1px dashed var(--line);
+  display:flex;align-items:flex-end;justify-content:space-between;}
+.score-block .num{font-family:'IBM Plex Mono',monospace;font-size:40px;font-weight:600;line-height:1;}
+.score-block .num small{font-size:14px;color:var(--dim);font-weight:400;}
+.stars{font-size:16px;letter-spacing:2px;}
+.sec-t{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--dim);margin-top:18px;padding-top:13px;border-top:1px dashed var(--line);}
+ul.flist{list-style:none;margin-top:9px;}
+ul.flist li{display:flex;gap:9px;font-size:13px;line-height:1.55;margin-top:6px;}
+ul.flist li .mk{font-family:'IBM Plex Mono',monospace;font-weight:600;flex-shrink:0;}
+ul.flist.good li .mk{color:var(--good);} ul.flist.bad li .mk{color:var(--bad);}
+.metrics{margin-top:18px;padding-top:13px;border-top:1px dashed var(--line);
+  display:grid;grid-template-columns:1fr 1fr;gap:11px 14px;}
+.metric .lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:0.06em;}
+.metric .bar{height:4px;background:rgba(133,178,224,0.15);margin-top:5px;position:relative;}
+.metric .bar i{position:absolute;inset:0 auto 0 0;}
+.metric .val{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px;}
+.note-txt{font-size:12.5px;line-height:1.7;color:var(--muted);margin-top:9px;}
+.clim-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px;margin-top:11px;}
+.cl{background:rgba(133,178,224,0.06);border:1px solid var(--line);border-radius:6px;padding:8px 10px;}
+.cl .ck{font-size:10px;color:var(--dim);letter-spacing:0.02em;}
+.cl .cv{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;margin-top:3px;}
+.placeholder{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:0 26px;color:var(--dim);}
+.placeholder .glyph{font-size:26px;margin-bottom:12px;}
+.placeholder p{font-size:12.5px;line-height:1.7;}
+
+/* ---------- shared controls ---------- */
+.live-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:11px 15px;margin-bottom:22px;}
+.live-left{display:flex;align-items:center;gap:9px;}
+.live-text{font-size:12.5px;color:var(--muted);}
+.live-dot{width:9px;height:9px;border-radius:50%;background:var(--dim);flex-shrink:0;}
+.live-dot.on{background:var(--good);box-shadow:0 0 0 4px rgba(79,191,135,0.18);animation:blink 2.4s ease-in-out infinite;}
+.live-dot.load{background:var(--accent);animation:blink 1s linear infinite;}
+.live-dot.err{background:var(--bad);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.35}}
+.live-right{display:flex;align-items:center;gap:11px;}
+.switch{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;}
+.switch input{accent-color:var(--good);width:16px;height:16px;cursor:pointer;}
+.mini-btn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;
+  padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;}
+.mini-btn:hover:not(:disabled){border-color:var(--accent);color:var(--ink);}
+.mini-btn:disabled{opacity:0.4;cursor:default;}
+
+section{margin-bottom:30px;}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding-bottom:9px;margin-bottom:15px;border-bottom:1px solid var(--line);}
+.sec-head h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;}
+.sec-head .note{font-size:11.5px;color:var(--dim);}
+
+.chips{display:flex;gap:7px;flex-wrap:wrap;}
+.chip{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);padding:8px 14px;
+  border-radius:999px;font-size:12.5px;cursor:pointer;transition:all .16s;font-weight:500;font-family:inherit;}
+.chip:hover{border-color:var(--accent);color:var(--ink);}
+.chip.on{background:var(--good);border-color:var(--good);color:#06251A;font-weight:600;}
+
+.weights{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 22px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:17px 19px;}
+.w-row label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:5px;}
+.w-row label b{font-family:'IBM Plex Mono',monospace;color:var(--ink);}
+.w-row{user-select:none;-webkit-user-select:none;}
+.w-row label b{font-variant-numeric:tabular-nums;}
+input[type=range]{width:100%;accent-color:var(--good);height:22px;cursor:pointer;
+  background:transparent;display:block;}
+input[type=range]:active{cursor:grabbing;}
+.w-hint{font-size:11px;color:var(--dim);margin-top:5px;line-height:1.45;}
+.impact{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:13px 16px;
+  margin-top:13px;font-size:12.5px;color:var(--muted);line-height:1.7;}
+.impact b{color:var(--ink);} .impact .up{color:var(--good);} .impact .down{color:var(--bad);}
+
+.rank-list{display:flex;flex-direction:column;gap:5px;}
+.rank-row{display:grid;grid-template-columns:32px 1fr 84px 54px;align-items:center;gap:11px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:6px;padding:10px 13px;
+  cursor:pointer;transition:border-color .15s,transform .15s;}
+.rank-row:hover{border-color:var(--accent);transform:translateX(2px);}
+.rank-row.sel{border-color:var(--good);}
+.rank-row .pos{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--dim);}
+.rank-row .nm{font-size:13.5px;font-weight:600;}
+.rank-row .nm em{font-style:normal;font-size:11px;color:var(--dim);margin-left:6px;font-weight:400;}
+.rank-row .bar{height:5px;background:rgba(133,178,224,0.14);border-radius:3px;position:relative;}
+.rank-row .bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;}
+.rank-row .sc{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;text-align:right;}
+
+.detail{display:grid;grid-template-columns:280px 1fr;gap:22px;background:var(--bg-2);
+  border:1px solid var(--line);border-radius:8px;padding:20px;}
+.radar-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.detail h3{font-family:'Space Grotesk',sans-serif;font-size:19px;}
+.detail .big{font-family:'IBM Plex Mono',monospace;font-size:36px;font-weight:600;line-height:1;}
+.detail .big small{font-size:13px;color:var(--dim);font-weight:400;}
+.mrows{display:flex;flex-direction:column;gap:10px;margin-top:15px;}
+.verdict{margin-top:16px;padding-top:13px;border-top:1px dashed var(--line);
+  font-size:12.5px;line-height:1.65;color:var(--muted);}
+.verdict b{color:var(--ink);}
+
+select{background:var(--bg-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;
+  padding:9px 12px;font-size:13px;font-family:inherit;min-width:150px;}
+table{width:100%;border-collapse:collapse;background:var(--bg-2);border:1px solid var(--line);
+  border-radius:8px;overflow:hidden;font-size:13px;}
+th,td{padding:10px 13px;text-align:right;border-bottom:1px solid var(--line);}
+th:first-child,td:first-child{text-align:left;color:var(--muted);}
+thead th{font-size:11.5px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;}
+tbody tr:last-child td{border-bottom:none;font-weight:700;background:rgba(133,178,224,0.05);}
+td.win{color:var(--good);font-weight:600;}
+td .n{font-family:'IBM Plex Mono',monospace;}
+.disclaimer{font-size:11.5px;color:var(--dim);line-height:1.65;border-left:2px solid var(--line);
+  padding-left:12px;margin-top:6px;}
+
+
+/* ---------- AI 분석 의견 ---------- */
+.ai-box{background:linear-gradient(180deg,rgba(79,191,135,0.07),rgba(13,33,65,0.6));
+  border:1px solid rgba(79,191,135,0.28);border-radius:10px;padding:18px 20px;
+  animation:fadeUp .35s ease both;}
+.ai-head{font-size:14.5px;line-height:1.7;color:var(--ink);margin-bottom:12px;}
+.ai-head b{color:var(--good);}
+.ai-sub{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--dim);margin-top:14px;}
+.ai-box ul.flist li{font-size:13px;line-height:1.6;}
+.ai-real{margin-top:14px;padding:10px 13px;border-radius:6px;font-size:12.5px;line-height:1.65;
+  background:rgba(79,191,135,0.12);color:var(--ink);}
+.ai-real.warn{background:rgba(224,166,63,0.12);}
+.ai-concl{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);
+  font-size:13.5px;line-height:1.7;color:var(--muted);}
+.ai-concl b{color:var(--ink);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+/* ---------- 항목별 근거 카드 ---------- */
+.mrow2{padding:10px 0;border-bottom:1px solid rgba(133,178,224,0.08);}
+.mrow2:last-child{border-bottom:none;}
+.m2-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;margin-bottom:6px;}
+.m2-top .lb{color:var(--ink);font-weight:500;}
+.m2-top .vl{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+.mrow2 .bar{height:6px;background:rgba(133,178,224,0.14);border-radius:3px;position:relative;overflow:hidden;}
+.mrow2 .bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;transition:width .35s ease;}
+.m2-why{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:6px;}
+.m2-src{font-size:10px;color:var(--dim);margin-top:3px;}
+.m2-raw{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:10.5px;}
+
+/* ---------- 실제 데이터센터 비교 ---------- */
+.site-cmp{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;}
+.sc-head{font-size:12.5px;color:var(--muted);margin-bottom:10px;padding-bottom:9px;
+  border-bottom:1px dashed var(--line);}
+.sc-row{display:grid;grid-template-columns:1fr 52px 46px 1.3fr;gap:10px;align-items:center;
+  padding:8px 0;font-size:12.5px;border-bottom:1px solid rgba(133,178,224,0.07);}
+.sc-row:last-child{border-bottom:none;}
+.sc-nm{font-weight:600;} .sc-nm span{font-weight:400;color:var(--muted);}
+.sc-sc,.sc-df{font-family:'IBM Plex Mono',monospace;text-align:right;font-weight:600;}
+.sc-note{font-size:11.5px;color:var(--dim);text-align:right;}
+
+/* ---------- 보고서 ---------- */
+.rep-actions{display:flex;gap:9px;flex-wrap:wrap;}
+.mini-btn.primary{background:var(--good);border-color:var(--good);color:#06251A;font-weight:600;}
+.mini-btn.primary:hover{filter:brightness(1.08);}
+.report-box{margin-top:14px;background:#08152A;border:1px solid var(--line);border-radius:8px;
+  padding:16px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.7;
+  color:var(--muted);white-space:pre-wrap;max-height:420px;overflow:auto;}
+
+/* ---------- 다중 국가 비교 ---------- */
+.pick-box{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.pchip{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);border-radius:999px;
+  padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;}
+.pchip:hover{border-color:var(--accent);}
+.pchip.on{background:rgba(79,191,135,0.1);font-weight:600;}
+.cmp-radar{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:18px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:16px;}
+.legend-series{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);}
+.legend-series span{display:flex;align-items:center;gap:6px;}
+.legend-series i{width:10px;height:10px;border-radius:2px;}
+
+.chip,.pchip,.mini-btn,.tab{transition:background .16s,color .16s,border-color .16s;}
+.rank-row{transition:border-color .15s,transform .15s,background .15s;}
+
+
+/* ---------- 검색 (헤더) ---------- */
+.search-box{position:relative;flex:0 1 220px;min-width:120px;}
+.search-box input{width:100%;border:1px solid var(--line);border-radius:6px;
+  padding:8px 12px;font-size:12.5px;font-family:inherit;color:var(--ink);
+  background:rgba(133,178,224,0.08);outline:none;transition:border-color .16s,background .16s;}
+.search-box input:focus{border-color:var(--accent);background:rgba(133,178,224,0.14);}
+.search-box input::placeholder{color:var(--dim);}
+.search-results{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:1200;
+  background:#fff;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  max-height:280px;overflow-y:auto;}
+.sr{padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;
+  align-items:baseline;border-bottom:1px solid #F2F5F8;}
+.sr:last-child{border-bottom:none;}
+.sr:hover{background:#F5F8FB;}
+.sr-nm{font-size:12.5px;color:#3B4551;font-weight:500;}
+.sr-sub{font-size:10.5px;color:#9AA6B4;}
+.sr-empty{padding:10px 12px;font-size:12px;color:#9AA6B4;}
+
+/* ---------- 계산 과정 ---------- */
+.break-box{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:16px 18px;}
+.bd-bar{display:flex;height:16px;border-radius:4px;overflow:hidden;margin-bottom:14px;}
+.bd-bar i{transition:width .35s ease;}
+.bd-list{display:flex;flex-direction:column;gap:2px;}
+.bd-row{display:grid;grid-template-columns:12px 1fr auto 52px;align-items:center;gap:10px;
+  font-size:12.5px;padding:5px 0;}
+.bd-dot{width:9px;height:9px;border-radius:2px;}
+.bd-nm{color:var(--ink);}
+.bd-calc{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dim);}
+.bd-val{font-family:'IBM Plex Mono',monospace;text-align:right;color:var(--muted);font-weight:600;}
+.bd-total{border-top:1px dashed var(--line);margin-top:6px;padding-top:9px;}
+.bd-total .bd-nm,.bd-total .bd-val{color:var(--good);font-weight:700;}
+
+/* ---------- 시뮬레이터 ---------- */
+.sim-box{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:16px 18px;}
+.sim-input label{display:flex;align-items:center;gap:12px;font-size:12.5px;color:var(--muted);}
+.sim-input label b{font-family:'IBM Plex Mono',monospace;color:var(--ink);min-width:56px;text-align:right;}
+.sim-input input[type=range]{flex:1;}
+.sim-hint{font-size:11px;color:var(--dim);margin-top:5px;}
+.sim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin-top:16px;}
+.sim-card{background:rgba(133,178,224,0.06);border:1px solid var(--line);border-radius:7px;padding:11px 13px;}
+.sim-card .sk{font-size:10.5px;color:var(--dim);letter-spacing:0.02em;}
+.sim-card .sv{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;margin-top:4px;line-height:1.15;}
+.sim-card .sv span{font-size:11px;color:var(--dim);margin-left:3px;font-weight:400;}
+.sim-card .sn{font-size:10.5px;color:var(--dim);margin-top:5px;line-height:1.45;}
+.sim-note{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:14px;
+  padding-top:11px;border-top:1px dashed var(--line);}
+.sim-note b{color:var(--muted);}
+
+
+/* ---------- 예시 데이터 배너 ---------- */
+.notice-banner{flex-shrink:0;display:flex;align-items:flex-start;gap:10px;
+  background:rgba(224,166,63,0.13);border-bottom:1px solid rgba(224,166,63,0.3);
+  padding:10px 18px;font-size:12px;line-height:1.6;color:var(--muted);}
+.nb-icon{color:var(--mid);font-size:13px;flex-shrink:0;}
+.nb-text{flex:1;} .nb-text b{color:var(--ink);}
+.nb-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;
+  padding:0 4px;flex-shrink:0;}
+.nb-close:hover{color:var(--ink);}
+
+/* ---------- 기본/고급 모드 ---------- */
+.mode-toggle{display:flex;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;}
+.mode-btn{background:transparent;border:none;color:var(--dim);font-family:inherit;
+  font-size:12px;padding:6px 14px;cursor:pointer;transition:all .15s;}
+.mode-btn.on{background:var(--good);color:#06251A;font-weight:600;}
+.mode-hint{font-size:12px;color:var(--dim);line-height:1.6;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:13px 16px;}
+.mode-hint b{color:var(--muted);}
+
+/* ---------- 지도 필터 드롭다운 ---------- */
+#filterSelect{width:100%;background:#fff;color:#3B4551;border:1px solid #E1E6EC;
+  border-radius:5px;padding:7px 9px;font-size:12.5px;font-family:inherit;cursor:pointer;min-width:150px;}
+.filter-panel{max-width:190px;}
+
+/* ---------- 다크 지도 ---------- */
+#map.dark-map .country-label{color:#E4EEF9;
+  text-shadow:-1px -1px 0 #10203A,1px -1px 0 #10203A,-1px 1px 0 #10203A,1px 1px 0 #10203A,
+              0 -1px 0 #10203A,0 1px 0 #10203A,-1px 0 0 #10203A,1px 0 0 #10203A;}
+#map.dark-map{background:#0B1B2E;}
+
+
+
+/* ---------- AI 분석 4구획 ---------- */
+.ai-sec{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);}
+.ai-sec:first-of-type{border-top:none;padding-top:0;}
+.ai-none{font-size:12.5px;color:var(--dim);margin-top:7px;}
+
+/* ---------- 아코디언 ---------- */
+.sec-head.collapsible{cursor:pointer;user-select:none;position:relative;padding-right:22px;}
+.sec-head.collapsible:hover h2{color:var(--accent);}
+.acc-arrow{position:absolute;right:0;bottom:9px;color:var(--dim);font-size:12px;
+  transition:transform .22s ease;}
+section.closed .acc-arrow{transform:rotate(-90deg);}
+section.closed > *:not(.sec-head){display:none !important;}
+
+/* ---------- 순위 변화 그래프 ---------- */
+.trend-box{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;
+  padding:14px 16px;margin-bottom:18px;}
+.trend-note{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:8px;
+  padding-top:9px;border-top:1px dashed var(--line);}
+
+/* ---------- 인쇄(PDF) ---------- */
+@media print{
+  body.printing{height:auto;overflow:visible;display:block;background:#fff;color:#111;}
+  body.printing header,body.printing .notice-banner,body.printing .tabs,
+  body.printing #mapPane,body.printing #comparePane,
+  body.printing #analysisPane section:not(:last-child),
+  body.printing .rep-actions{display:none !important;}
+  body.printing .pane{display:block !important;}
+  body.printing .scroll{overflow:visible;padding:0;}
+  body.printing .report-box{display:block !important;background:#fff;color:#111;
+    border:none;max-height:none;overflow:visible;font-size:10.5pt;line-height:1.7;
+    white-space:pre-wrap;padding:0;}
+}
+
+
+/* ---------- 지표 중복 보정 ---------- */
+.decorr{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12.5px;
+  color:var(--muted);cursor:pointer;flex-wrap:wrap;}
+.decorr input{accent-color:var(--good);width:15px;height:15px;cursor:pointer;}
+.decorr em{font-style:normal;font-size:11.5px;color:var(--dim);}
+.corr-box{margin-top:11px;background:var(--bg-2);border:1px solid var(--line);
+  border-radius:8px;padding:13px 15px;}
+.corr-title{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:8px;}
+.corr-row{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;
+  color:var(--ink);padding:4px 0;}
+.corr-r{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+.corr-note{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:10px;
+  padding-top:9px;border-top:1px dashed var(--line);}
+
+
+/* ---------- 데이터 연동 상태 ---------- */
+.data-panel{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:15px 17px;}
+.ds-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  padding-bottom:11px;margin-bottom:11px;border-bottom:1px dashed var(--line);font-size:13px;color:var(--muted);}
+.ds-head b{color:var(--good);font-family:'IBM Plex Mono',monospace;font-size:15px;}
+.ds-list{display:flex;flex-direction:column;gap:2px;}
+.ds-row{display:grid;grid-template-columns:96px 74px 1fr;grid-template-areas:'nm badge src' '. . note';
+  gap:4px 10px;align-items:center;font-size:12px;padding:6px 0;
+  border-bottom:1px solid rgba(133,178,224,0.06);}
+.ds-row:last-child{border-bottom:none;}
+.ds-nm{grid-area:nm;color:var(--ink);font-weight:500;}
+.ds-src{grid-area:src;color:var(--muted);font-size:11.5px;}
+.ds-note{grid-area:note;color:var(--dim);font-size:11px;line-height:1.5;}
+.ds{grid-area:badge;font-size:10.5px;font-weight:600;padding:3px 7px;border-radius:4px;text-align:center;}
+.ds.real{background:rgba(79,191,135,0.16);color:var(--good);}
+.ds.est{background:rgba(224,166,63,0.14);color:var(--mid);}
+.ds.fail{background:rgba(210,99,74,0.16);color:var(--bad);}
+.ds-foot{font-size:11px;color:var(--dim);line-height:1.6;margin-top:12px;
+  padding-top:10px;border-top:1px dashed var(--line);}
+
+
+/* ---------- 계산 수식 ---------- */
+.formula-box{background:#08152A;border:1px solid var(--line);border-radius:8px;
+  padding:14px 16px;margin-bottom:12px;}
+.fm-line{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);
+  padding-bottom:10px;margin-bottom:10px;border-bottom:1px dashed var(--line);}
+.fm-calc{display:flex;flex-direction:column;gap:3px;}
+.fm-term{display:grid;grid-template-columns:100px 40px 14px 52px 14px 1fr;gap:6px;
+  align-items:center;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);}
+.fm-nm{color:var(--ink);font-family:'Inter',sans-serif;font-size:12px;}
+.fm-num,.fm-w{text-align:right;}
+.fm-op{color:var(--dim);text-align:center;}
+.fm-part{color:var(--ink);font-weight:600;}
+.fm-sum{grid-template-columns:100px 1fr;border-top:1px dashed var(--line);
+  margin-top:6px;padding-top:8px;}
+.fm-sum .fm-part{color:var(--good);font-size:14px;}
+.fm-note{font-size:11px;color:var(--dim);line-height:1.6;margin-top:11px;
+  padding-top:9px;border-top:1px dashed var(--line);}
+
+/* ---------- 냉각 방식 선택 ---------- */
+.cool-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:12px;
+  font-size:12.5px;color:var(--muted);}
+.cool-btn{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);
+  border-radius:999px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;
+  transition:all .15s;}
+.cool-btn:hover{border-color:var(--accent);}
+.cool-btn.on{background:var(--accent);border-color:var(--accent);color:#062430;font-weight:600;}
+.sim-input label{margin-bottom:9px;}
+
+/* ---------- 기업·지역 필터 ---------- */
+.site-filter{left:14px;top:112px;padding:9px 11px;display:flex;gap:6px;
+  align-items:center;flex-wrap:wrap;max-width:230px;}
+.site-filter select{background:#fff;color:#3B4551;border:1px solid #E1E6EC;border-radius:5px;
+  padding:5px 8px;font-size:11.5px;font-family:inherit;cursor:pointer;max-width:105px;}
+.sf-count{font-size:10.5px;color:#7A8798;width:100%;}
+
+@media(max-width:820px){
+  .site-filter{top:auto;bottom:82px;left:10px;right:64px;max-width:none;}
+  .fm-term{grid-template-columns:82px 34px 12px 44px 12px 1fr;font-size:10.5px;}
+
+  .ds-row{grid-template-columns:80px 66px 1fr;}
+
+  .notice-banner{padding:8px 12px;font-size:11px;align-items:center;}
+  .nb-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .nb-text .nb-long{display:none;}
+  .filter-panel{max-width:none;}
+  .mode-toggle{margin-left:auto;}
+
+  .search-box{flex:1 1 auto;min-width:0;}
+  .search-box input{padding:7px 10px;font-size:12px;}
+  .bd-row{grid-template-columns:12px 1fr 46px;}
+  .bd-calc{display:none;}
+
+  .sc-row{grid-template-columns:1fr 48px 42px;}
+  .sc-note{display:none;}
+  .ai-box{padding:14px 15px;}
+
+  header{padding:9px 13px 0;}
+  .brand{font-size:15px;}
+  .hd-stats{gap:12px;} .hd-stats .st .n{font-size:13px;} .hd-stats .st .l{font-size:8px;}
+  .tab{padding:8px 11px;font-size:12.5px;}
+  .legend{padding:8px 10px;font-size:11px;left:10px;top:10px;}
+  .filter-panel{left:10px;right:64px;bottom:10px;max-width:none;}
+  .zoom-ctrl{right:10px;bottom:10px;}
+  #mapPane{flex-direction:column;}
+  .mpanel{width:100%!important;height:0;border-left:none;border-top:1px solid var(--line);
+    transition:height .3s cubic-bezier(.4,0,.2,1);}
+  .mpanel.open{height:56%;}
+  .mpanel-in{width:100%;padding:16px;}
+  .detail{grid-template-columns:1fr;}
+  .rank-row{grid-template-columns:26px 1fr 48px;}
+  .rank-row .bar{display:none;}
+  .scroll{padding:16px 13px 40px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hd-top">
+    <div class="brand">DataCenter <span>Atlas</span></div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="국가 · 기업 검색" autocomplete="off" aria-label="국가 또는 기업 검색" role="combobox" aria-expanded="false" aria-controls="searchResults">
+      <div class="search-results" id="searchResults" role="listbox" aria-label="검색 결과"></div>
+    </div>
+    <div class="hd-stats">
+      <div class="st"><div class="n" id="stCount">—</div><div class="l" id="stCountLabel">수록 지점</div></div>
+      <div class="st"><div class="n" id="stTop">—</div><div class="l">1위 국가</div></div>
+    </div>
+  </div>
+  <div class="tabs" role="tablist" aria-label="화면 전환">
+    <button class="tab on" data-t="map" role="tab" aria-selected="true" aria-controls="mapPane">지도</button>
+    <button class="tab" data-t="analysis" role="tab" aria-selected="false" aria-controls="analysisPane">분석</button>
+    <button class="tab" data-t="compare" role="tab" aria-selected="false" aria-controls="comparePane">비교</button>
+  </div>
+</header>
+
+<div class="notice-banner" id="dataBanner">
+  <span class="nb-icon">ⓘ</span>
+  <span class="nb-text"><b>8개 지표 중 7개는 공개 통계 원자료를 사용합니다.</b>
+    전기요금·재생에너지·정전시간·인터넷속도·재해위험·땅값·기온은 실제 공표값을 정규화했고,
+    냉각 수자원만 배정값입니다.<span class="nb-long">
+    비교 탭의 출처 표에서 항목별 단위와 구분을 확인할 수 있습니다.</span></span>
+  <button class="nb-close" id="nbClose" aria-label="안내 닫기">✕</button>
+</div>
+
+<!-- 지도 -->
+<div class="pane on" id="mapPane">
+  <div id="map">
+    <div class="ov legend">
+      <div class="title" id="legendTitle">데이터센터 적합도</div>
+      <div id="legendBody"></div>
+    </div>
+    <div class="ov site-filter" id="siteFilter"></div>
+    <div class="ov filter-panel">
+      <div class="f-title">색상 필터</div>
+      <select id="filterSelect" aria-label="지도 색상 필터"></select>
+      <div class="f-hint" id="gridHint" style="display:none">축소하면 색상 분포가 다시 표시됩니다</div>
+    </div>
+    <div class="ov zoom-ctrl">
+      <button id="zoomIn" aria-label="지도 확대">+</button>
+      <button id="zoomOut" aria-label="지도 축소">−</button>
+      <button id="zoomReset" style="font-size:14px" aria-label="처음 화면으로">⟲</button>
+      <button id="mapStyleBtn" style="font-size:14px" aria-label="지도 스타일 바꾸기">◧</button>
+    </div>
+    <div class="ov map-notice" id="mapNotice">
+      <b>지도 배경을 불러오지 못했습니다.</b><br>
+      이 미리보기 환경에서 외부 지도 서버 요청이 차단된 상태입니다.
+      파일을 내려받아 브라우저에서 열면 정상적으로 표시됩니다.<br><br>
+      <span style="color:#7A8798">지도 배경과 무관하게 <b>분석 · 비교 탭은 정상 동작</b>합니다.
+      색상 필터와 마커, 지점 평가도 그대로 쓸 수 있습니다.</span>
+    </div>
+  </div>
+  <div class="mpanel" id="mpanel">
+    <div class="mpanel-in" id="mpanelIn">
+      <div class="placeholder">
+        <div class="glyph">◌</div>
+        <p>마커를 누르면 해당 데이터센터의 입지 평가가 표시됩니다.<br><br>
+        지도의 <b>아무 곳이나 길게 누르면</b> 그 지점에 데이터센터를 짓는 것이 적합한지 평가해 줍니다.
+        (PC에서는 마우스 오른쪽 클릭)<br><br>
+        <span style="font-size:11.5px" id="siteCountNote">전 세계에는 약 11,000개의 데이터센터가 있습니다.
+        이 지도에는 주요 사업자의 대표 캠퍼스만 표시합니다.</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 분석 -->
+<div class="pane" id="analysisPane"><div class="scroll"><div class="inner">
+  <section>
+    <div class="sec-head"><h2>데이터 연동 상태</h2>
+      <div class="note">어떤 값이 실측이고 어떤 값이 추정인지 표시합니다</div></div>
+    <div class="data-panel" id="dataPanel"></div>
+  </section>
+
+  <div class="live-bar" id="liveBar"></div>
+
+  <section>
+    <div class="sec-head"><h2>사용 목적</h2>
+      <div class="note">목적에 따라 가중치가 자동으로 바뀝니다</div></div>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>기후 시나리오</h2>
+      <div class="note">기온 상승이 입지 점수에 주는 영향을 비교합니다</div></div>
+    <div class="chips" id="eras"></div>
+    <div class="impact" id="eraNote" style="margin-top:12px"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>평가 가중치</h2>
+      <div class="mode-toggle">
+        <button class="mode-btn" id="modeBasic" aria-pressed="false">간단히</button>
+        <button class="mode-btn on" id="modeAdv" aria-pressed="true">직접 조절</button>
+      </div></div>
+    <div class="mode-hint" id="modeHint" style="display:none">목적 프리셋만으로 분석합니다.
+      항목별로 직접 조절하려면 <b>직접 조절</b>을 누르세요.</div>
+    <label class="decorr">
+      <input type="checkbox" id="decorrToggle">
+      <span>지표 중복 보정</span>
+      <em id="decorrNote"></em>
+    </label>
+    <div class="corr-box" id="corrBox"></div>
+    <div class="weights" id="weights"></div>
+    <div class="impact" id="impact"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>국가 순위</h2>
+      <div class="note">행을 누르면 아래에 상세 분석이 표시됩니다</div></div>
+    <div class="rank-list" id="rankList"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>AI 분석 의견</h2>
+      <div class="note">선택한 국가와 현재 가중치를 근거로 작성됩니다</div></div>
+    <div class="ai-box" id="aiBox"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>상세 분석</h2>
+      <div class="note">각 항목의 점수 근거와 출처를 함께 표시합니다</div></div>
+    <div class="detail" id="detail"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>총점이 나온 과정</h2>
+      <div class="note">항목별 점수 × 가중치가 총점에 기여하는 몫</div></div>
+    <div class="formula-box" id="formulaBox"></div>
+    <div class="break-box" id="breakBox"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>운영 시뮬레이션</h2>
+      <div class="note">전력 소비 · 냉각 · 탄소배출 · 비용 추정</div></div>
+    <div class="sim-box" id="simBox"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>실제 데이터센터와 비교</h2>
+      <div class="note">기업들의 실제 선택과 모델 점수를 대조합니다</div></div>
+    <div class="site-cmp" id="siteCmp"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>보고서</h2>
+      <div class="note">현재 분석 결과를 문서로 저장합니다</div></div>
+    <div class="rep-actions">
+      <button class="mini-btn" id="repPreview">미리보기</button>
+      <button class="mini-btn primary" id="repDownload">Markdown 내려받기</button>
+      <button class="mini-btn" id="repPDF">PDF로 저장</button>
+      <button class="mini-btn" id="repStudy">탐구 보고서 생성</button>
+      <button class="mini-btn" id="repCSV">CSV 내려받기</button>
+      <button class="mini-btn" id="repShare">분석 결과 링크 복사</button>
+    </div>
+    <pre class="report-box" id="reportBox" style="display:none"></pre>
+  </section>
+</div></div></div>
+
+<!-- 비교 -->
+<div class="pane" id="comparePane"><div class="scroll"><div class="inner">
+  <section>
+    <div class="sec-head"><h2>국가 비교</h2>
+      <div class="note">현재 가중치 기준으로 총점이 계산됩니다</div></div>
+    <div class="note" style="font-size:12px;color:var(--dim);margin-bottom:10px">
+      국가를 눌러 선택하세요 (최대 5개)</div>
+    <div class="pick-box" id="cmpPick" role="group" aria-label="비교할 국가 선택"></div>
+    <div class="cmp-radar" id="cmpRadar"></div>
+    <div class="trend-box" id="trendBox"></div>
+    <div id="cmpTable"></div>
+  </section>
+  <section style="margin-top:30px">
+    <div class="sec-head"><h2>데이터 출처</h2></div>
+    <div id="srcList"></div>
+  </section>
+
+  <div class="disclaimer">
+    수록된 수치는 계산 구조를 확인하기 위한 <b>예시 값</b>입니다. 실제 보고서에 쓰려면
+    기온은 기상청·NOAA, 전력 단가는 IEA, 재생에너지 비율은 Ember·Our World in Data,
+    인터넷 속도는 Ookla, 재해 위험도는 WorldRiskIndex 자료로 교체해야 합니다.
+  </div>
+</div></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+// 지도 타일 등 외부 리소스의 크로스오리진 잡음만 걸러내고, 코드 오류는 콘솔에 남긴다.
+let __xoCount=0, __resCount=0;
+
+// 오류를 세 종류로 나눠 처리한다. 핸들러를 두 개로 나누면 먼저 등록된 쪽이
+// 걸러내기 전에 로그를 남겨버리므로 반드시 하나로 합쳐야 한다.
+window.addEventListener('error', e=>{
+  // (1) 이미지·스크립트·스타일시트 로딩 실패 — e.target 이 엘리먼트다.
+  //     message 가 비어 있어 '[Atlas] 오류:  ?:?' 처럼 찍히던 원인.
+  const el = e.target;
+  if(el && el !== window && el.tagName){
+    __resCount++;
+    if(__resCount===1){
+      console.warn('[Atlas] 외부 리소스(지도 타일 등)를 불러오지 못했습니다. 분석 기능은 정상입니다.');
+    }
+    e.preventDefault(); e.stopImmediatePropagation();
+    return false;
+  }
+
+  // (2) 크로스오리진 스크립트 오류 — 브라우저가 내용을 감춰 "Script error." 로만 온다.
+  if(e.message==='Script error.' && !e.filename && !e.lineno){
+    __xoCount++;
+    if(__xoCount===1) console.warn('[Atlas] 외부 지도 서버에 연결하지 못했습니다.');
+    e.preventDefault(); e.stopImmediatePropagation();
+    return false;
+  }
+
+  // (3) 그 밖의 진짜 오류만 콘솔에 남긴다. 내용이 비어 있으면 무시한다.
+  if(!e.message) { e.preventDefault(); return false; }
+  console.error('[Atlas] 오류:', e.message, (e.filename||'?')+':'+(e.lineno||'?'));
+}, true);
+
+/* ---- 공용 헬퍼 ----
+   화살표 상수로 두면 선언 위치보다 먼저 호출될 때 TDZ 오류가 난다.
+   앱 전역에서 쓰이므로 호이스팅되는 함수 선언으로 둔다. */
+function $(id){ return document.getElementById(id); }
+const ESC_MAP={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+function esc(v){ return String(v).replace(/[&<>"']/g, ch => ESC_MAP[ch]); }
+
+window.addEventListener('unhandledrejection', e=>{
+  console.error('[Atlas] 처리되지 않은 Promise 오류:', e.reason);
+});
+
+/* ============ 1. 데이터 ============ */
+const FACTORS = [
+  {key:'temp', label:'기후·냉각',   w:18, up:'높이면 <b>서늘한 고위도 국가</b>가 유리해집니다.'},
+  {key:'power',label:'전력 비용',   w:18, up:'높이면 <b>전기가 싼 나라</b>가 유리해집니다.'},
+  {key:'renew',label:'재생에너지',  w:14, up:'높이면 <b>수력·풍력 비중이 큰 나라</b>가 유리해집니다.'},
+  {key:'grid', label:'전력망 안정성',w:14, up:'높이면 <b>전력 공급이 안정적인 나라</b>가 유리해집니다.'},
+  {key:'water',label:'냉각 수자원', w:9,  up:'높이면 <b>물이 풍부한 나라</b>가 유리해집니다. 사막 지역이 크게 불리해집니다.'},
+  {key:'net',  label:'인터넷 인프라',w:9,  up:'높이면 <b>통신 허브 국가</b>가 유리해집니다.'},
+  {key:'risk', label:'재해 위험',   w:9,  up:'높이면 <b>지진·태풍이 드문 나라</b>가 유리해집니다.'},
+  {key:'land', label:'토지 비용',   w:9,  up:'높이면 <b>땅값이 싼 넓은 나라</b>가 유리해집니다.'},
+];
+const FKEYS = FACTORS.map(f=>f.key);
+const FLABEL = Object.fromEntries(FACTORS.map(f=>[f.key,f.label]));
+
+// rank:true → 순위·비교에 등장 / rank:false → 지도 색상 계산에만 사용하는 보조 기준점
+const DATA = [
+  {n:'아이슬란드',rank:1,region:'북유럽',dc:0,lat:64.9,lng:-18.5,temp:99,power:95,renew:100,grid:88,net:78,risk:62,land:88,water:98,tc:5,ci:28,iso:'IS'},
+  {n:'노르웨이',rank:1,region:'북유럽',dc:1,lat:62.5,lng:9.5,temp:94,power:93,renew:99,grid:94,net:88,risk:88,land:72,water:96,tc:6,ci:30,iso:'NO'},
+  {n:'핀란드',rank:1,region:'북유럽',dc:1,lat:63.5,lng:26.0,temp:95,power:88,renew:88,grid:93,net:90,risk:92,land:78,water:94,tc:5,ci:79,iso:'FI'},
+  {n:'스웨덴',rank:1,region:'북유럽',dc:1,lat:62.0,lng:15.5,temp:92,power:87,renew:92,grid:92,net:91,risk:90,land:76,water:93,tc:7,ci:41,iso:'SE'},
+  {n:'덴마크',rank:1,region:'북유럽',dc:1,lat:56.0,lng:9.6,temp:87,power:74,renew:96,grid:93,net:90,risk:89,land:64,water:82,tc:9,ci:151,iso:'DK'},
+  {n:'에스토니아',rank:1,region:'북유럽',dc:0,lat:58.7,lng:25.6,temp:88,power:79,renew:62,grid:84,net:88,risk:90,land:86,water:88,tc:6.5,ci:464,iso:'EE'},
+  {n:'캐나다',rank:1,region:'북미',dc:1,lat:56.1,lng:-106.3,temp:90,power:86,renew:81,grid:90,net:86,risk:82,land:84,water:95,tc:7,ci:120,iso:'CA'},
+  {n:'아일랜드',rank:1,region:'서유럽',dc:1,lat:53.2,lng:-8.0,temp:89,power:70,renew:72,grid:78,net:89,risk:91,land:60,water:92,tc:10,ci:300,iso:'IE'},
+  {n:'네덜란드',rank:1,region:'서유럽',dc:1,lat:52.2,lng:5.5,temp:83,power:72,renew:74,grid:91,net:96,risk:84,land:48,water:80,tc:11,ci:268,iso:'NL'},
+  {n:'오스트리아',rank:1,region:'서유럽',dc:1,lat:47.6,lng:14.1,temp:0,power:58,renew:78,grid:93,net:88,risk:82,land:50,water:88,tc:9,ci:158,iso:'AT'},
+  {n:'체코',rank:1,region:'동유럽',dc:1,lat:49.8,lng:15.4,temp:0,power:62,renew:18,grid:88,net:86,risk:88,land:70,water:72,tc:9,ci:437,iso:'CZ'},
+  {n:'헝가리',rank:1,region:'동유럽',dc:1,lat:47.1,lng:19.4,temp:0,power:64,renew:20,grid:84,net:84,risk:84,land:74,water:66,tc:11,ci:223,iso:'HU'},
+  {n:'불가리아',rank:1,region:'동유럽',dc:1,lat:42.7,lng:25.4,temp:0,power:72,renew:24,grid:78,net:86,risk:80,land:82,water:70,tc:11.5,ci:372,iso:'BG'},
+  {n:'리투아니아',rank:1,region:'북유럽',dc:1,lat:55.3,lng:23.9,temp:0,power:66,renew:30,grid:82,net:88,risk:88,land:84,water:80,tc:7,ci:174,iso:'LT'},
+  {n:'라트비아',rank:1,region:'북유럽',dc:0,lat:56.9,lng:24.7,temp:0,power:68,renew:52,grid:82,net:86,risk:88,land:84,water:84,tc:6.5,ci:110,iso:'LV'},
+  {n:'룩셈부르크',rank:1,region:'서유럽',dc:1,lat:49.6,lng:6.1,temp:0,power:60,renew:14,grid:96,net:94,risk:90,land:32,water:76,tc:10,ci:98,iso:'LU'},
+  {n:'이스라엘',rank:1,region:'중동',dc:1,lat:31.4,lng:35.0,temp:0,power:66,renew:12,grid:84,net:86,risk:52,land:40,water:20,tc:20,ci:537,iso:'IL'},
+  {n:'카타르',rank:1,region:'중동',dc:1,lat:25.3,lng:51.2,temp:0,power:84,renew:2,grid:90,net:88,risk:84,land:56,water:4,tc:28,ci:490,iso:'QA'},
+  {n:'홍콩',rank:1,region:'동아시아',dc:1,lat:22.3,lng:114.2,temp:0,power:58,renew:2,grid:92,net:97,risk:52,land:14,water:56,tc:23.5,ci:700,iso:'HK'},
+  {n:'벨기에',rank:1,region:'서유럽',dc:1,lat:50.6,lng:4.6,temp:82,power:60,renew:40,grid:92,net:94,risk:88,land:50,water:74,tc:11,ci:138,iso:'BE'},
+  {n:'영국',rank:1,region:'서유럽',dc:1,lat:54.0,lng:-2.5,temp:84,power:63,renew:70,grid:85,net:92,risk:88,land:52,water:88,tc:10,ci:238,iso:'GB'},
+  {n:'독일',rank:1,region:'서유럽',dc:1,lat:51.2,lng:10.4,temp:80,power:52,renew:68,grid:94,net:90,risk:86,land:54,water:82,tc:10.5,ci:381,iso:'DE'},
+  {n:'프랑스',rank:1,region:'서유럽',dc:1,lat:46.6,lng:2.2,temp:76,power:74,renew:52,grid:91,net:89,risk:84,land:58,water:78,tc:12,ci:56,iso:'FR'},
+  {n:'스위스',rank:1,region:'서유럽',dc:1,lat:46.8,lng:8.2,temp:82,power:64,renew:79,grid:95,net:92,risk:80,land:40,water:94,tc:10,ci:41,iso:'CH'},
+  {n:'폴란드',rank:1,region:'동유럽',dc:1,lat:52.0,lng:19.4,temp:80,power:68,renew:38,grid:80,net:85,risk:88,land:76,water:70,tc:9,ci:662,iso:'PL'},
+  {n:'스페인',rank:1,region:'서유럽',dc:1,lat:40.0,lng:-3.7,temp:66,power:68,renew:64,grid:86,net:88,risk:78,land:66,water:46,tc:15,ci:156,iso:'ES'},
+  {n:'뉴질랜드',rank:1,region:'오세아니아',dc:0,lat:-41.5,lng:172.8,temp:86,power:78,renew:90,grid:85,net:79,risk:58,land:74,water:94,tc:13,ci:112,iso:'NZ'},
+  {n:'칠레',rank:1,region:'남미',dc:0,lat:-33.5,lng:-71.0,temp:84,power:73,renew:76,grid:76,net:74,risk:52,land:82,water:62,tc:14.5,ci:332,iso:'CL'},
+  {n:'미국',rank:1,region:'북미',dc:1,lat:39.5,lng:-98.4,temp:66,power:80,renew:48,grid:82,net:94,risk:66,land:70,water:70,tc:11,ci:369,iso:'US'},
+  {n:'대한민국',rank:1,region:'동아시아',dc:1,lat:36.5,lng:127.9,temp:70,power:72,renew:22,grid:95,net:98,risk:78,land:38,water:72,tc:12.5,ci:437,iso:'KR'},
+  {n:'일본',rank:1,region:'동아시아',dc:1,lat:36.2,lng:138.3,temp:68,power:54,renew:32,grid:93,net:95,risk:38,land:36,water:86,tc:16,ci:462,iso:'JP'},
+  {n:'중국',rank:1,region:'동아시아',dc:1,lat:35.0,lng:103.0,temp:64,power:76,renew:42,grid:82,net:82,risk:60,land:66,water:52,tc:17,ci:538,iso:'CN'},
+  {n:'대만',rank:1,region:'동아시아',dc:1,lat:23.7,lng:121.0,temp:48,power:70,renew:16,grid:80,net:93,risk:40,land:38,water:78,tc:23,ci:561,iso:'TW'},
+  {n:'호주',rank:1,region:'오세아니아',dc:1,lat:-25.3,lng:133.8,temp:58,power:62,renew:46,grid:79,net:80,risk:62,land:78,water:44,tc:18,ci:549,iso:'AU'},
+  {n:'브라질',rank:1,region:'남미',dc:1,lat:-10.8,lng:-52.9,temp:52,power:70,renew:84,grid:70,net:72,risk:74,land:80,water:92,tc:20,ci:110,iso:'BR'},
+  {n:'인도',rank:1,region:'남아시아',dc:1,lat:22.6,lng:79.0,temp:36,power:78,renew:34,grid:58,net:70,risk:56,land:84,water:40,tc:27,ci:713,iso:'IN'},
+  {n:'멕시코',rank:1,region:'북미',dc:1,lat:23.6,lng:-102.5,temp:58,power:72,renew:30,grid:66,net:70,risk:58,land:78,water:46,tc:16,ci:431,iso:'MX'},
+  {n:'남아프리카공화국',rank:1,region:'아프리카',dc:1,lat:-29.0,lng:24.7,temp:66,power:74,renew:20,grid:42,net:66,risk:76,land:82,water:32,tc:16,ci:709,iso:'ZA'},
+  {n:'싱가포르',rank:1,region:'동남아',dc:1,lat:1.35,lng:103.8,temp:32,power:56,renew:12,grid:92,net:99,risk:86,land:24,water:38,tc:28,ci:486,iso:'SG'},
+  {n:'인도네시아',rank:1,region:'동남아',dc:1,lat:-2.5,lng:118.0,temp:34,power:74,renew:26,grid:62,net:64,risk:36,land:80,water:90,tc:27,ci:686,iso:'ID'},
+  {n:'아랍에미리트',rank:1,region:'중동',dc:1,lat:24.0,lng:54.0,temp:24,power:80,renew:22,grid:90,net:88,risk:82,land:62,water:8,tc:28,ci:402,iso:'AE'},
+  {n:'바레인',rank:1,region:'중동',dc:1,lat:26.07,lng:50.56,temp:26,power:78,renew:4,grid:86,net:84,risk:84,land:52,water:6,tc:27,ci:470,iso:'BH'},
+  {n:'파라과이',rank:1,region:'남미',dc:0,lat:-23.4,lng:-58.4,temp:46,power:88,renew:100,grid:64,net:56,risk:78,land:88,water:90,tc:23,ci:25,iso:'PY'},
+  {n:'우루과이',rank:1,region:'남미',dc:0,lat:-32.5,lng:-55.8,temp:62,power:66,renew:88,grid:76,net:78,risk:84,land:82,water:86,tc:17,ci:128,iso:'UY'},
+
+  // --- 지도 색상 계산용 보조 기준점 ---
+  {n:'러시아',rank:1,region:'동유럽',dc:1,lat:61.5,lng:90.0,temp:88,power:88,renew:34,grid:74,net:70,risk:82,land:88,water:88,tc:-1,ci:360,iso:'RU'},
+  {n:'시베리아 동부',rank:0,lat:62.0,lng:129.7,temp:90,power:88,renew:24,grid:50,net:44,risk:80,land:94,water:90,tc:-8,ci:400},
+  {n:'알래스카',rank:0,lat:64.2,lng:-149.5,temp:92,power:74,renew:36,grid:60,net:58,risk:62,land:92,water:94,tc:-3,ci:480},
+  {n:'그린란드',rank:0,lat:72.0,lng:-42.0,temp:98,power:70,renew:90,grid:48,net:34,risk:78,land:95,water:96,tc:-15,ci:60},
+  {n:'카자흐스탄',rank:1,region:'중앙아시아',dc:1,lat:48.0,lng:66.9,temp:78,power:84,renew:12,grid:66,net:62,risk:80,land:90,water:34,tc:6,ci:620,iso:'KZ'},
+  {n:'우즈베키스탄',rank:0,lat:41.4,lng:64.6,temp:68,power:80,renew:16,grid:58,net:54,risk:70,land:88,water:22,tc:13,ci:520},
+  {n:'몽골',rank:1,region:'동아시아',dc:0,lat:46.9,lng:103.8,temp:82,power:76,renew:14,grid:52,net:48,risk:76,land:94,water:30,tc:0,ci:700,iso:'MN'},
+  {n:'이란',rank:1,region:'중동',dc:0,lat:32.4,lng:53.7,temp:50,power:86,renew:8,grid:60,net:52,risk:52,land:84,water:18,tc:17,ci:550,iso:'IR'},
+  {n:'이라크',rank:0,lat:33.2,lng:43.7,temp:44,power:82,renew:6,grid:44,net:46,risk:56,land:86,water:20,tc:22,ci:640},
+  {n:'튀르키예',rank:1,region:'중동',dc:1,lat:39.0,lng:35.2,temp:64,power:66,renew:44,grid:74,net:76,risk:48,land:74,water:50,tc:12,ci:440,iso:'TR'},
+  {n:'우크라이나',rank:1,region:'동유럽',dc:0,lat:48.4,lng:31.2,temp:76,power:78,renew:22,grid:56,net:74,risk:62,land:88,water:64,tc:8,ci:260,iso:'UA'},
+  {n:'벨라루스',rank:0,lat:53.7,lng:27.9,temp:82,power:76,renew:10,grid:72,net:70,risk:86,land:88,water:80,tc:7,ci:420},
+  {n:'루마니아',rank:1,region:'동유럽',dc:1,lat:45.9,lng:25.0,temp:74,power:70,renew:48,grid:78,net:88,risk:76,land:82,water:70,tc:9.5,ci:260,iso:'RO'},
+  {n:'그리스',rank:1,region:'서유럽',dc:1,lat:39.0,lng:22.0,temp:60,power:60,renew:46,grid:76,net:80,risk:58,land:72,water:48,tc:16,ci:350,iso:'GR'},
+  {n:'이탈리아',rank:1,region:'서유럽',dc:1,lat:42.8,lng:12.6,temp:70,power:58,renew:56,grid:84,net:85,risk:64,land:56,water:62,tc:14,ci:330,iso:'IT'},
+  {n:'포르투갈',rank:1,region:'서유럽',dc:1,lat:39.5,lng:-8.2,temp:66,power:64,renew:70,grid:84,net:86,risk:70,land:70,water:56,tc:16,ci:180,iso:'PT'},
+  {n:'모로코',rank:1,region:'아프리카',dc:1,lat:31.9,lng:-7.1,temp:52,power:70,renew:38,grid:62,net:62,risk:66,land:86,water:30,tc:18,ci:610,iso:'MA'},
+  {n:'알제리',rank:0,lat:28.1,lng:2.6,temp:42,power:88,renew:4,grid:58,net:52,risk:74,land:90,water:14,tc:23,ci:490},
+  {n:'리비아',rank:0,lat:26.5,lng:17.5,temp:38,power:88,renew:2,grid:38,net:40,risk:76,land:92,water:6,tc:22,ci:720},
+  {n:'이집트',rank:1,region:'아프리카',dc:1,lat:26.8,lng:30.0,temp:40,power:80,renew:24,grid:64,net:62,risk:74,land:84,water:10,tc:22,ci:470,iso:'EG'},
+  {n:'수단',rank:0,lat:15.5,lng:30.3,temp:26,power:72,renew:34,grid:34,net:36,risk:60,land:92,water:22,tc:29,ci:380},
+  {n:'차드',rank:0,lat:15.5,lng:18.7,temp:26,power:58,renew:12,grid:24,net:28,risk:66,land:94,water:20,tc:27,ci:700},
+  {n:'니제르',rank:0,lat:17.6,lng:8.1,temp:28,power:64,renew:14,grid:26,net:30,risk:66,land:94,water:14,tc:28,ci:690},
+  {n:'말리',rank:0,lat:17.6,lng:-4.0,temp:28,power:62,renew:30,grid:28,net:32,risk:64,land:94,water:24,tc:28,ci:480},
+  {n:'나이지리아',rank:1,region:'아프리카',dc:1,lat:9.1,lng:8.7,temp:30,power:66,renew:20,grid:32,net:48,risk:68,land:86,water:72,tc:27,ci:400,iso:'NG'},
+  {n:'에티오피아',rank:0,lat:9.2,lng:39.6,temp:48,power:74,renew:96,grid:44,net:40,risk:62,land:90,water:52,tc:18,ci:30},
+  {n:'케냐',rank:1,region:'아프리카',dc:1,lat:0.2,lng:37.9,temp:44,power:66,renew:88,grid:52,net:56,risk:66,land:86,water:44,tc:19,ci:90,iso:'KE'},
+  {n:'콩고',rank:0,lat:-2.9,lng:23.6,temp:32,power:70,renew:96,grid:26,net:30,risk:64,land:92,water:96,tc:25,ci:30},
+  {n:'앙골라',rank:0,lat:-11.2,lng:17.9,temp:40,power:68,renew:70,grid:40,net:44,risk:74,land:88,water:72,tc:21,ci:200},
+  {n:'탄자니아',rank:0,lat:-6.4,lng:34.9,temp:40,power:66,renew:62,grid:40,net:44,risk:70,land:90,water:60,tc:22,ci:320},
+  {n:'모잠비크',rank:0,lat:-18.7,lng:35.5,temp:44,power:70,renew:80,grid:38,net:40,risk:56,land:92,water:70,tc:24,ci:130},
+  {n:'보츠와나',rank:0,lat:-22.3,lng:24.7,temp:56,power:72,renew:10,grid:48,net:50,risk:80,land:92,water:26,tc:21,ci:720},
+  {n:'마다가스카르',rank:0,lat:-18.8,lng:46.9,temp:48,power:60,renew:38,grid:30,net:34,risk:44,land:92,water:74,tc:22,ci:480},
+  {n:'사우디아라비아',rank:1,region:'중동',dc:1,lat:24.0,lng:45.1,temp:28,power:82,renew:14,grid:88,net:82,risk:82,land:70,water:6,tc:26,ci:600,iso:'SA'},
+  {n:'파키스탄',rank:1,region:'남아시아',dc:1,lat:30.4,lng:69.3,temp:48,power:74,renew:30,grid:44,net:50,risk:54,land:88,water:28,tc:22,ci:400,iso:'PK'},
+  {n:'방글라데시',rank:1,region:'남아시아',dc:1,lat:23.7,lng:90.4,temp:38,power:78,renew:4,grid:50,net:56,risk:34,land:74,water:84,tc:26,ci:570,iso:'BD'},
+  {n:'미얀마',rank:0,lat:21.9,lng:96.0,temp:36,power:72,renew:50,grid:36,net:42,risk:44,land:88,water:86,tc:26,ci:320},
+  {n:'태국',rank:1,region:'동남아',dc:1,lat:15.9,lng:100.9,temp:30,power:68,renew:18,grid:74,net:78,risk:64,land:76,water:78,tc:27,ci:500,iso:'TH'},
+  {n:'베트남',rank:1,region:'동남아',dc:1,lat:14.1,lng:108.3,temp:32,power:78,renew:44,grid:66,net:74,risk:44,land:80,water:84,tc:25,ci:400,iso:'VN'},
+  {n:'말레이시아',rank:1,region:'동남아',dc:1,lat:4.2,lng:102.0,temp:30,power:74,renew:20,grid:78,net:82,risk:80,land:70,water:92,tc:27,ci:552,iso:'MY'},
+  {n:'필리핀',rank:1,region:'동남아',dc:1,lat:12.9,lng:121.8,temp:30,power:56,renew:24,grid:54,net:60,risk:30,land:76,water:86,tc:26,ci:590,iso:'PH'},
+  {n:'파푸아뉴기니',rank:0,lat:-6.3,lng:143.9,temp:32,power:56,renew:40,grid:30,net:32,risk:34,land:90,water:96,tc:26,ci:550},
+  {n:'페루',rank:1,region:'남미',dc:1,lat:-9.2,lng:-75.0,temp:44,power:72,renew:58,grid:60,net:60,risk:48,land:86,water:64,tc:19,ci:240,iso:'PE'},
+  {n:'콜롬비아',rank:1,region:'남미',dc:1,lat:4.6,lng:-74.3,temp:38,power:70,renew:72,grid:62,net:64,risk:54,land:84,water:92,tc:24,ci:180,iso:'CO'},
+  {n:'베네수엘라',rank:0,lat:6.4,lng:-66.6,temp:34,power:80,renew:70,grid:30,net:44,risk:66,land:88,water:84,tc:26,ci:220},
+  {n:'볼리비아',rank:0,lat:-16.3,lng:-63.6,temp:48,power:74,renew:34,grid:52,net:52,risk:66,land:90,water:66,tc:15,ci:400},
+  {n:'아르헨티나',rank:1,region:'남미',dc:1,lat:-35.4,lng:-64.2,temp:72,power:74,renew:40,grid:64,net:70,risk:76,land:86,water:64,tc:15,ci:340,iso:'AR'},
+  {n:'쿠바',rank:0,lat:21.5,lng:-79.5,temp:34,power:58,renew:12,grid:38,net:38,risk:38,land:84,water:74,tc:25,ci:640},
+  {n:'과테말라',rank:0,lat:15.8,lng:-90.2,temp:38,power:62,renew:60,grid:50,net:52,risk:36,land:82,water:82,tc:23,ci:300},
+];
+// 실제 연평균 기온(tc, °C)에서 기온 점수를 산출한다.
+// 손으로 매긴 점수 대신 물리량을 정규화하는 방식이라 시나리오 계산의 기준선도 정확해진다.
+DATA.forEach(c=>{ if(typeof c.tc==='number') c.temp = tempScore(c.tc); });
+
+// ---- 내륙 보조 기준점: 큰 나라 내부의 빈 칸을 메운다 (부모 국가 지표를 상속) ----
+const INTERIOR = [
+  ['러시아',60,60],['러시아',56,80],['러시아',64,105],['러시아',67,145],['러시아',52,105],
+  ['카자흐스탄',50,75],['카자흐스탄',44,60],['몽골',44,95],
+  ['캐나다',60,-120],['캐나다',54,-75],['캐나다',65,-95],['캐나다',50,-95],['캐나다',68,-130],
+  ['알래스카',68,-155],['그린란드',68,-45],['그린란드',77,-35],
+  ['미국',40,-115],['미국',35,-95],['미국',45,-100],['미국',37,-80],
+  ['멕시코',28,-108],['멕시코',18,-95],
+  ['중국',40,90],['중국',31,95],['중국',45,122],['중국',25,105],
+  ['인도',26,76],['인도',15,77],
+  ['호주',-25,120],['호주',-20,145],['호주',-30,142],['호주',-28,118],
+  ['브라질',-5,-60],['브라질',-15,-45],['브라질',-25,-50],['브라질',-8,-40],
+  ['아르헨티나',-45,-69],['아르헨티나',-28,-64],['페루',-13,-72],['볼리비아',-19,-64],
+  ['알제리',24,4],['알제리',30,-2],['리비아',24,20],['이집트',24,28],
+  ['말리',20,-3],['니제르',20,10],['차드',20,18],['수단',18,28],
+  ['에티오피아',6,42],['콩고',0,20],['콩고',-6,25],['앙골라',-14,20],
+  ['탄자니아',-4,33],['모잠비크',-15,37],['남아프리카공화국',-25,25],
+  ['사우디아라비아',22,44],['사우디아라비아',28,42],['이란',30,58],
+  ['카자흐스탄',46,72],['우즈베키스탄',42,60],['파키스탄',27,66],
+  ['인도네시아',-1,113],['인도네시아',-4,140],['미얀마',20,95],
+  ['스웨덴',66,18],['핀란드',67,27],['노르웨이',69,22],['러시아',69,88],
+  ['튀르키예',38,38],['우크라이나',49,35],['프랑스',45,4],['스페인',41,-4],
+];
+INTERIOR.forEach(([parent,lat,lng])=>{
+  const src=DATA.find(d=>d.n===parent);
+  if(!src) return;
+  const tc = src.tc + (estTemp(lat) - estTemp(src.lat));   // 위도 차이만큼 기온 보정
+  DATA.push({...src, lat, lng, tc, temp:tempScore(tc), rank:0, _parent:parent});
+});
+
+// ---- 바다 기준점: 가장 가까운 것이 바다면 색을 칠하지 않는다 ----
+const SEA = [
+  [36,18],[38,5],[34,28],[40,16],[43,34],[41,51],[57,19],[56,3],[66,2],[45,-6],   // 유럽 주변
+  [40,135],[36,123],[28,125],[16,114],[8,110],[15,88],[18,63],[27,51],[20,38],[12,52], // 아시아 주변
+  [-18,41],[-6,116],[-8,128],[2,3],[-4,-32],                                          // 인도양·대서양
+  [-16,152],[-38,158],[-38,132],[-12,120],[-25,110],                                  // 오세아니아 주변
+  [25,-90],[15,-75],[58,-85],[58,-55],[72,-65],[30,-70],                              // 북미 주변
+  [58,-178],[56,-145],[55,148],[74,40],[74,70],[76,125],[73,165],[72,-135],           // 북극·베링
+  [45,-40],[55,-25],[30,-45],[10,-40],[-20,-25],[-35,-45],[-45,-60],                  // 대서양
+  [0,-140],[20,-160],[-20,-120],[30,-150],[-40,-100],[10,-95],[-15,-85],[40,-170],    // 태평양
+  [-20,75],[-35,80],[0,70],[-45,60],[-10,60],[5,90],                                  // 인도양
+];
+/* ---- 최근접 기준점 탐색 ----
+   기준점이 165개뿐이라 공간 색인은 관리 비용이 더 크다 (실측 13배 느림).
+   대신 삼각함수 값을 미리 계산해 두고, 가까운 후보를 고를 때는 값싼 근사식을 쓴 뒤
+   최종 거리만 정확히 계산한다. 결과는 전수 탐색과 동일하다. */
+// 두 지점 사이의 대권 거리 (km)
+function hav(a,b){
+  const R=6371, r=x=>x*Math.PI/180;
+  const dLat=r(b.lat-a.lat), dLng=r(b.lng-a.lng);
+  const t=Math.sin(dLat/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(t));
+}
+function prepGeo(pts){
+  pts.forEach(p=>{
+    p._rlat = p.lat*Math.PI/180;
+    p._rlng = p.lng*Math.PI/180;
+    p._clat = Math.cos(p._rlat);
+  });
+  return pts;
+}
+let _seaPts=null;
+function seaPoints(){
+  if(!_seaPts) _seaPts=prepGeo(SEA.map(([lat,lng])=>({lat,lng})));
+  return _seaPts;
+}
+let _geoReady=false;
+function ensureGeo(){ if(!_geoReady){ prepGeo(DATA); _geoReady=true; } }
+
+// 등거리 원통 근사로 가장 가까운 점을 고른다 (제곱 거리라 sqrt 도 생략)
+function pickNearest(pts, lat, lng){
+  const rlat=lat*Math.PI/180, rlng=lng*Math.PI/180, clat=Math.cos(rlat);
+  let best=null, bestD2=Infinity;
+  for(let i=0;i<pts.length;i++){
+    const c=pts[i];
+    let dl=rlng-c._rlng;
+    if(dl>Math.PI) dl-=2*Math.PI; else if(dl<-Math.PI) dl+=2*Math.PI;
+    const x=dl*(clat+c._clat)*0.5, y=rlat-c._rlat;
+    const d2=x*x+y*y;
+    if(d2<bestD2){ bestD2=d2; best=c; }
+  }
+  return best;
+}
+function nearestSea(lat,lng){
+  const p=pickNearest(seaPoints(), lat, lng);
+  return p ? hav({lat,lng},p) : Infinity;
+}
+// exact=true 면 모든 후보를 정확한 대권 거리로 비교한다.
+// 격자 색칠처럼 수천 번 도는 곳은 근사(기본값), 사용자가 국가명을 직접 보는
+// 지점 평가·데이터센터 평가는 정확 모드를 쓴다.
+function nearest(lat,lng,exact){
+  ensureGeo();
+  if(exact){
+    let best=null, bestD=Infinity;
+    for(const c of DATA){
+      const d=hav({lat,lng},c);
+      if(d<bestD){ bestD=d; best=c; }
+    }
+    return {ref:best, dist:bestD};
+  }
+  const p=pickNearest(DATA, lat, lng);
+  return {ref:p, dist:p?hav({lat,lng},p):Infinity};
+}
+
+const RANKED_SET = DATA.filter(c=>c.rank);
+
+const SITES = [
+  // Google
+  {co:'Google',pl:'Hamina',ct:'핀란드',lat:60.5693,lng:27.1975},
+  {co:'Google',pl:'Eemshaven',ct:'네덜란드',lat:53.4386,lng:6.8339},
+  {co:'Google',pl:'St Ghislain',ct:'벨기에',lat:50.4550,lng:3.8180},
+  {co:'Google',pl:'Dublin',ct:'아일랜드',lat:53.3244,lng:-6.3860},
+  {co:'Google',pl:'The Dalles',ct:'미국',lat:45.5946,lng:-121.1787},
+  {co:'Google',pl:'Council Bluffs',ct:'미국',lat:41.2619,lng:-95.8608},
+  {co:'Google',pl:'Douglas County',ct:'미국',lat:33.7010,lng:-84.7477},
+  {co:'Google',pl:'Changhua',ct:'대만',lat:24.0850,lng:120.4820},
+  {co:'Google',pl:'Jurong West',ct:'싱가포르',lat:1.3400,lng:103.7000},
+  {co:'Google',pl:'Osaka',ct:'일본',lat:34.6937,lng:135.5023},
+  {co:'Google',pl:'Sydney',ct:'호주',lat:-33.8688,lng:151.2093},
+  {co:'Google',pl:'Quilicura',ct:'칠레',lat:-33.3670,lng:-70.7290},
+  {co:'Google',pl:'Mumbai',ct:'인도',lat:19.0760,lng:72.8777},
+  {co:'Google',pl:'São Paulo',ct:'브라질',lat:-23.5505,lng:-46.6333},
+  // AWS
+  {co:'AWS',pl:'N. Virginia',ct:'미국',lat:39.0438,lng:-77.4874},
+  {co:'AWS',pl:'Oregon',ct:'미국',lat:45.8400,lng:-119.7000},
+  {co:'AWS',pl:'Ohio',ct:'미국',lat:39.9612,lng:-82.9988},
+  {co:'AWS',pl:'Dublin',ct:'아일랜드',lat:53.3498,lng:-6.2603},
+  {co:'AWS',pl:'Frankfurt',ct:'독일',lat:50.1109,lng:8.6821},
+  {co:'AWS',pl:'Stockholm',ct:'스웨덴',lat:59.3293,lng:18.0686},
+  {co:'AWS',pl:'London',ct:'영국',lat:51.5074,lng:-0.1278},
+  {co:'AWS',pl:'Tokyo',ct:'일본',lat:35.6762,lng:139.6503},
+  {co:'AWS',pl:'Seoul',ct:'대한민국',lat:37.5665,lng:126.9780},
+  {co:'AWS',pl:'Singapore',ct:'싱가포르',lat:1.3521,lng:103.8198},
+  {co:'AWS',pl:'Sydney',ct:'호주',lat:-33.8688,lng:151.2093},
+  {co:'AWS',pl:'Mumbai',ct:'인도',lat:19.0760,lng:72.8777},
+  {co:'AWS',pl:'São Paulo',ct:'브라질',lat:-23.5505,lng:-46.6333},
+  {co:'AWS',pl:'Bahrain',ct:'바레인',lat:26.0667,lng:50.5577},
+  {co:'AWS',pl:'Cape Town',ct:'남아프리카공화국',lat:-33.9249,lng:18.4241},
+  // Microsoft
+  {co:'Microsoft',pl:'Quincy',ct:'미국',lat:47.2343,lng:-119.8524},
+  {co:'Microsoft',pl:'San Antonio',ct:'미국',lat:29.4241,lng:-98.4936},
+  {co:'Microsoft',pl:'Boydton',ct:'미국',lat:36.6676,lng:-78.3875},
+  {co:'Microsoft',pl:'Middenmeer',ct:'네덜란드',lat:52.8167,lng:4.9833},
+  {co:'Microsoft',pl:'Dublin',ct:'아일랜드',lat:53.4239,lng:-6.3600},
+  {co:'Microsoft',pl:'Gävle',ct:'스웨덴',lat:60.6749,lng:17.1413},
+  {co:'Microsoft',pl:'Tokyo',ct:'일본',lat:35.6762,lng:139.6503},
+  {co:'Microsoft',pl:'Busan',ct:'대한민국',lat:35.1796,lng:129.0756},
+  {co:'Microsoft',pl:'Singapore',ct:'싱가포르',lat:1.3521,lng:103.8198},
+  {co:'Microsoft',pl:'Sydney',ct:'호주',lat:-33.8688,lng:151.2093},
+  {co:'Microsoft',pl:'Pune',ct:'인도',lat:18.5204,lng:73.8567},
+  {co:'Microsoft',pl:'Johannesburg',ct:'남아프리카공화국',lat:-26.2041,lng:28.0473},
+  // Meta
+  {co:'Meta',pl:'Prineville',ct:'미국',lat:44.2998,lng:-120.8345},
+  {co:'Meta',pl:'Eagle Mountain',ct:'미국',lat:40.3141,lng:-112.0069},
+  {co:'Meta',pl:'Luleå',ct:'스웨덴',lat:65.5848,lng:22.1567},
+  {co:'Meta',pl:'Odense',ct:'덴마크',lat:55.4038,lng:10.4024},
+  {co:'Meta',pl:'Clonee',ct:'아일랜드',lat:53.4100,lng:-6.4400},
+  {co:'Meta',pl:'Singapore',ct:'싱가포르',lat:1.3200,lng:103.7000},
+  // Oracle
+  {co:'Oracle',pl:'Phoenix',ct:'미국',lat:33.4484,lng:-112.0740},
+  {co:'Oracle',pl:'Ashburn',ct:'미국',lat:39.0438,lng:-77.4874},
+  {co:'Oracle',pl:'Frankfurt',ct:'독일',lat:50.1109,lng:8.6821},
+  // Apple
+  {co:'Apple',pl:'Maiden',ct:'미국',lat:35.5793,lng:-81.2192},
+  {co:'Apple',pl:'Viborg',ct:'덴마크',lat:56.4530,lng:9.4020},
+  // Alibaba
+  {co:'Alibaba',pl:'Hangzhou',ct:'중국',lat:30.2741,lng:120.1551},
+  {co:'Alibaba',pl:'Ulanqab',ct:'중국',lat:41.0200,lng:113.1200},
+  {co:'Alibaba',pl:'Singapore',ct:'싱가포르',lat:1.3521,lng:103.8198},
+  // Tencent
+  {co:'Tencent',pl:'Shanghai',ct:'중국',lat:31.2304,lng:121.4737},
+  {co:'Tencent',pl:'Guiyang',ct:'중국',lat:26.6470,lng:106.6302},
+  // ByteDance
+  {co:'ByteDance',pl:'Johor',ct:'말레이시아',lat:1.4927,lng:103.7414},
+  // 국내
+  {co:'Naver',pl:'Chuncheon',ct:'대한민국',lat:37.8813,lng:127.7300},
+  {co:'Naver',pl:'Sejong',ct:'대한민국',lat:36.4800,lng:127.2890},
+  {co:'Kakao',pl:'Ansan',ct:'대한민국',lat:37.3219,lng:126.8309},
+  // ---- 추가 지점 ----
+  // Google
+  {co:'Google',pl:'Berkeley County',ct:'미국',lat:33.1960,lng:-80.0140},
+  {co:'Google',pl:'Lenoir',ct:'미국',lat:35.9140,lng:-81.5390},
+  {co:'Google',pl:'Mayes County',ct:'미국',lat:36.2900,lng:-95.3100},
+  {co:'Google',pl:'Papillion',ct:'미국',lat:41.1540,lng:-96.0420},
+  {co:'Google',pl:'Storey County',ct:'미국',lat:39.5300,lng:-119.4400},
+  {co:'Google',pl:'Fredericia',ct:'덴마크',lat:55.5657,lng:9.7527},
+  {co:'Google',pl:'Montréal',ct:'캐나다',lat:45.5017,lng:-73.5673},
+  {co:'Google',pl:'Delhi',ct:'인도',lat:28.6139,lng:77.2090},
+  {co:'Google',pl:'Jakarta',ct:'인도네시아',lat:-6.2088,lng:106.8456},
+  {co:'Google',pl:'Doha 인접 UAE',ct:'아랍에미리트',lat:25.2048,lng:55.2708},
+  // AWS
+  {co:'AWS',pl:'Paris',ct:'프랑스',lat:48.8566,lng:2.3522},
+  {co:'AWS',pl:'Zurich',ct:'스위스',lat:47.3769,lng:8.5417},
+  {co:'AWS',pl:'Madrid',ct:'스페인',lat:40.4168,lng:-3.7038},
+  {co:'AWS',pl:'Osaka',ct:'일본',lat:34.6937,lng:135.5023},
+  {co:'AWS',pl:'Hyderabad',ct:'인도',lat:17.3850,lng:78.4867},
+  {co:'AWS',pl:'Jakarta',ct:'인도네시아',lat:-6.1751,lng:106.8650},
+  {co:'AWS',pl:'Melbourne',ct:'호주',lat:-37.8136,lng:144.9631},
+  {co:'AWS',pl:'Montréal',ct:'캐나다',lat:45.5088,lng:-73.5540},
+  {co:'AWS',pl:'Calgary',ct:'캐나다',lat:51.0447,lng:-114.0719},
+  {co:'AWS',pl:'UAE',ct:'아랍에미리트',lat:24.4539,lng:54.3773},
+  // Microsoft
+  {co:'Microsoft',pl:'Newport',ct:'영국',lat:51.5842,lng:-2.9977},
+  {co:'Microsoft',pl:'Zurich',ct:'스위스',lat:47.4245,lng:8.5000},
+  {co:'Microsoft',pl:'Warsaw',ct:'폴란드',lat:52.2297,lng:21.0122},
+  {co:'Microsoft',pl:'Madrid',ct:'스페인',lat:40.4637,lng:-3.7492},
+  {co:'Microsoft',pl:'Toronto',ct:'캐나다',lat:43.6532,lng:-79.3832},
+  {co:'Microsoft',pl:'Melbourne',ct:'호주',lat:-37.8200,lng:144.9500},
+  {co:'Microsoft',pl:'Chennai',ct:'인도',lat:13.0827,lng:80.2707},
+  {co:'Microsoft',pl:'Kuala Lumpur',ct:'말레이시아',lat:3.1390,lng:101.6869},
+  {co:'Microsoft',pl:'Abu Dhabi',ct:'아랍에미리트',lat:24.4667,lng:54.3667},
+  {co:'Microsoft',pl:'São Paulo',ct:'브라질',lat:-23.5489,lng:-46.6388},
+  // Meta
+  {co:'Meta',pl:'Altoona',ct:'미국',lat:41.6440,lng:-93.4650},
+  {co:'Meta',pl:'Fort Worth',ct:'미국',lat:32.7555,lng:-97.3308},
+  {co:'Meta',pl:'Huntsville',ct:'미국',lat:34.7304,lng:-86.5861},
+  {co:'Meta',pl:'New Albany',ct:'미국',lat:40.0812,lng:-82.8088},
+  {co:'Meta',pl:'Toledo',ct:'스페인',lat:39.8628,lng:-4.0273},
+  // Apple / Oracle
+  {co:'Apple',pl:'Reno',ct:'미국',lat:39.5296,lng:-119.8138},
+  {co:'Apple',pl:'Mesa',ct:'미국',lat:33.4152,lng:-111.8315},
+  {co:'Oracle',pl:'London',ct:'영국',lat:51.5074,lng:-0.1278},
+  // 아이슬란드·노르웨이 — 모델이 최적지로 꼽는 지역의 실제 사업자
+  {co:'atNorth',pl:'Keflavík',ct:'아이슬란드',lat:63.9850,lng:-22.5600},
+  {co:'Verne',pl:'Reykjanesbær',ct:'아이슬란드',lat:63.9900,lng:-22.5900},
+  {co:'Green Mountain',pl:'Stavanger',ct:'노르웨이',lat:58.9700,lng:5.7331},
+  {co:'Lefdal Mine',pl:'Måløy',ct:'노르웨이',lat:61.8800,lng:5.1200},
+  {co:'Bulk',pl:'Vennesla',ct:'노르웨이',lat:58.2700,lng:7.9800},
+  {co:'EcoDataCenter',pl:'Falun',ct:'스웨덴',lat:60.6065,lng:15.6355},
+  {co:'Hetzner',pl:'Helsinki',ct:'핀란드',lat:60.1699,lng:24.9384},
+  // 유럽 사업자
+  {co:'OVHcloud',pl:'Roubaix',ct:'프랑스',lat:50.6942,lng:3.1746},
+  {co:'OVHcloud',pl:'Gravelines',ct:'프랑스',lat:50.9870,lng:2.1280},
+  {co:'Hetzner',pl:'Falkenstein',ct:'독일',lat:50.4780,lng:12.3710},
+  {co:'Equinix',pl:'Frankfurt',ct:'독일',lat:50.1109,lng:8.6821},
+  {co:'Equinix',pl:'Amsterdam',ct:'네덜란드',lat:52.3676,lng:4.9041},
+  {co:'Virtus',pl:'Slough',ct:'영국',lat:51.5105,lng:-0.5950},
+  // 아시아
+  {co:'Alibaba',pl:'Zhangbei',ct:'중국',lat:41.1600,lng:114.7200},
+  {co:'Huawei',pl:'Guiyang',ct:'중국',lat:26.6470,lng:106.6302},
+  {co:'Baidu',pl:'Yangquan',ct:'중국',lat:37.8600,lng:113.5800},
+  {co:'GDS',pl:'Shanghai',ct:'중국',lat:31.1800,lng:121.4000},
+  {co:'NHN',pl:'Gwangju',ct:'대한민국',lat:35.1595,lng:126.8526},
+  {co:'Samsung SDS',pl:'Chuncheon',ct:'대한민국',lat:37.8600,lng:127.7400},
+  {co:'LG CNS',pl:'Busan',ct:'대한민국',lat:35.1796,lng:129.0756},
+  {co:'Yotta',pl:'Navi Mumbai',ct:'인도',lat:19.0330,lng:73.0297},
+  {co:'ST Telemedia',pl:'Singapore',ct:'싱가포르',lat:1.3300,lng:103.7400},
+  // 남반구·기타
+  {co:'Teraco',pl:'Johannesburg',ct:'남아프리카공화국',lat:-26.1400,lng:28.0900},
+  {co:'Ascenty',pl:'São Paulo',ct:'브라질',lat:-23.4800,lng:-46.5000},
+  {co:'KIO',pl:'Querétaro',ct:'멕시코',lat:20.5888,lng:-100.3899},
+  {co:'NEXTDC',pl:'Sydney',ct:'호주',lat:-33.8700,lng:151.2000},
+  {co:'Datacom',pl:'Auckland',ct:'뉴질랜드',lat:-36.8485,lng:174.7633},
+  // ---- 추가 지점 2차 ----
+  {co:'KT',pl:'Mok-dong',ct:'대한민국',lat:37.5260,lng:126.8750},
+  {co:'KT',pl:'Cheonan',ct:'대한민국',lat:36.8151,lng:127.1139},
+  {co:'SK브로드밴드',pl:'Sejong',ct:'대한민국',lat:36.4800,lng:127.2890},
+  {co:'LG U+',pl:'Pyeongchon',ct:'대한민국',lat:37.3943,lng:126.9568},
+  {co:'Samsung SDS',pl:'Suwon',ct:'대한민국',lat:37.2636,lng:127.0286},
+  {co:'Kakao',pl:'Siheung',ct:'대한민국',lat:37.3800,lng:126.8030},
+  {co:'Yandex',pl:'Vladimir',ct:'러시아',lat:56.1290,lng:40.4070},
+  {co:'Sber',pl:'Balabanovo',ct:'러시아',lat:55.1770,lng:36.6570},
+  {co:'VK',pl:'Moscow',ct:'러시아',lat:55.7558,lng:37.6173},
+  {co:'Freedom Holding',pl:'Almaty',ct:'카자흐스탄',lat:43.2380,lng:76.8890},
+  {co:'Start Campus',pl:'Sines',ct:'포르투갈',lat:37.9560,lng:-8.8640},
+  {co:'Aruba',pl:'Ponte San Pietro',ct:'이탈리아',lat:45.7000,lng:9.5900},
+  {co:'Equinix',pl:'Milan',ct:'이탈리아',lat:45.4642,lng:9.1900},
+  {co:'Lamda Hellix',pl:'Athens',ct:'그리스',lat:37.9838,lng:23.7275},
+  {co:'ClusterPower',pl:'Craiova',ct:'루마니아',lat:44.3302,lng:23.7949},
+  {co:'Atman',pl:'Warsaw',ct:'폴란드',lat:52.2297,lng:21.0122},
+  {co:'CE Colo',pl:'Prague',ct:'체코',lat:50.0755,lng:14.4378},
+  {co:'NTT',pl:'Vienna',ct:'오스트리아',lat:48.2082,lng:16.3738},
+  {co:'Invitech',pl:'Budapest',ct:'헝가리',lat:47.4979,lng:19.0402},
+  {co:'LuxConnect',pl:'Bissen',ct:'룩셈부르크',lat:49.7890,lng:6.0680},
+  {co:'Telia',pl:'Vilnius',ct:'리투아니아',lat:54.6872,lng:25.2797},
+  {co:'DigiPlex',pl:'Oslo',ct:'노르웨이',lat:59.9139,lng:10.7522},
+  {co:'Telehouse',pl:'London',ct:'영국',lat:51.5090,lng:-0.0090},
+  {co:'Vantage',pl:'Cardiff',ct:'영국',lat:51.4816,lng:-3.1791},
+  {co:'Digital Realty',pl:'Marseille',ct:'프랑스',lat:43.2965,lng:5.3698},
+  {co:'Interxion',pl:'Madrid',ct:'스페인',lat:40.4168,lng:-3.7038},
+  {co:'Switch',pl:'Las Vegas',ct:'미국',lat:36.1699,lng:-115.1398},
+  {co:'CyrusOne',pl:'Dallas',ct:'미국',lat:32.7767,lng:-96.7970},
+  {co:'QTS',pl:'Atlanta',ct:'미국',lat:33.7490,lng:-84.3880},
+  {co:'STACK',pl:'Portland',ct:'미국',lat:45.5152,lng:-122.6784},
+  {co:'Aligned',pl:'Salt Lake City',ct:'미국',lat:40.7608,lng:-111.8910},
+  {co:'Iron Mountain',pl:'Manassas',ct:'미국',lat:38.7509,lng:-77.4753},
+  {co:'xAI',pl:'Memphis',ct:'미국',lat:35.1495,lng:-90.0490},
+  {co:'CoreWeave',pl:'Plano',ct:'미국',lat:33.0198,lng:-96.6989},
+  {co:'Google',pl:'Dammam',ct:'사우디아라비아',lat:26.4207,lng:50.0888},
+  {co:'Ooredoo',pl:'Doha',ct:'카타르',lat:25.2854,lng:51.5310},
+  {co:'Microsoft',pl:'Doha',ct:'카타르',lat:25.2760,lng:51.5200},
+  {co:'AWS',pl:'Tel Aviv',ct:'이스라엘',lat:32.0853,lng:34.7818},
+  {co:'Telecom Egypt',pl:'Cairo',ct:'이집트',lat:30.0444,lng:31.2357},
+  {co:'MainOne',pl:'Lagos',ct:'나이지리아',lat:6.5244,lng:3.3792},
+  {co:'Africa Data Centres',pl:'Nairobi',ct:'케냐',lat:-1.2921,lng:36.8219},
+  {co:'Medasys',pl:'Casablanca',ct:'모로코',lat:33.5731,lng:-7.5898},
+  {co:'Turkcell',pl:'Izmir',ct:'튀르키예',lat:38.4237,lng:27.1428},
+  {co:'Equinix',pl:'Hong Kong',ct:'홍콩',lat:22.3193,lng:114.1694},
+  {co:'AWS',pl:'Hong Kong',ct:'홍콩',lat:22.2800,lng:114.1500},
+  {co:'True IDC',pl:'Bangkok',ct:'태국',lat:13.7563,lng:100.5018},
+  {co:'AWS',pl:'Bangkok',ct:'태국',lat:13.7000,lng:100.6000},
+  {co:'Viettel',pl:'Hanoi',ct:'베트남',lat:21.0285,lng:105.8542},
+  {co:'ePLDT',pl:'Manila',ct:'필리핀',lat:14.5995,lng:120.9842},
+  {co:'NTT',pl:'Mumbai',ct:'인도',lat:19.1200,lng:72.9000},
+  {co:'AirTrunk',pl:'Johor',ct:'말레이시아',lat:1.4600,lng:103.7600},
+  {co:'Bridge DC',pl:'Jakarta',ct:'인도네시아',lat:-6.2500,lng:106.9000},
+  {co:'NTT',pl:'Tokyo',ct:'일본',lat:35.6900,lng:139.7000},
+  {co:'AirTrunk',pl:'Sydney',ct:'호주',lat:-33.7900,lng:150.9000},
+  {co:'Ascenty',pl:'Santiago',ct:'칠레',lat:-33.4489,lng:-70.6693},
+  {co:'Odata',pl:'Bogotá',ct:'콜롬비아',lat:4.7110,lng:-74.0721},
+  {co:'Scala',pl:'Buenos Aires',ct:'아르헨티나',lat:-34.6037,lng:-58.3816},
+  {co:'GTD',pl:'Lima',ct:'페루',lat:-12.0464,lng:-77.0428},
+].map((s,i)=>({...s,id:i+1}));
+
+const PURPOSES = [
+  {id:'balanced',name:'기본 (균형)',w:{temp:18,power:18,renew:14,grid:14,water:9,net:9,risk:9,land:9},
+   why:'특정 목적을 정하지 않고 8개 항목을 고르게 반영합니다.'},
+  {id:'ai',name:'AI 학습용',w:{temp:22,power:24,renew:9,grid:16,water:9,net:7,risk:7,land:6},
+   why:'AI 학습은 며칠씩 쉬지 않고 돌아가 전력 소비가 크고 발열이 심합니다. 전기요금과 냉각 조건이 결정적입니다.'},
+  {id:'gpu',name:'GPU 클러스터',w:{temp:24,power:22,renew:8,grid:20,water:12,net:6,risk:5,land:3},
+   why:'GPU 랙은 일반 서버의 5~10배 열을 냅니다. 냉각과 전력망 용량, 그리고 수냉에 쓸 물이 함께 필요합니다.'},
+  {id:'hpc',name:'HPC (슈퍼컴퓨팅)',w:{temp:22,power:20,renew:8,grid:22,water:12,net:8,risk:5,land:3},
+   why:'대규모 병렬 연산은 순간 전력 변동이 커서 계통 안정성이 특히 중요합니다.'},
+  {id:'cloud',name:'클라우드 서비스',w:{temp:11,power:13,renew:7,grid:18,water:8,net:26,risk:11,land:6},
+   why:'이용자에게 응답을 빨리 돌려주는 것이 핵심이라 통신 인프라와 무중단 운영이 우선입니다.'},
+  {id:'green',name:'친환경 · 저탄소',w:{temp:16,power:9,renew:34,grid:13,water:10,net:5,risk:7,land:6},
+   why:'RE100·탄소중립 목표를 맞추려면 재생에너지 비율이 가장 중요합니다.'},
+  {id:'cost',name:'비용 절감',w:{temp:16,power:29,renew:4,grid:11,water:10,net:5,risk:5,land:20},
+   why:'운영비의 대부분은 전기요금이고, 초기 투자에서는 부지 비용이 큽니다.'},
+  {id:'latency',name:'초저지연',w:{temp:7,power:9,renew:4,grid:18,water:8,net:37,risk:11,land:6},
+   why:'금융 거래·실시간 게임처럼 지연시간이 곧 서비스 품질인 경우입니다.'},
+];
+
+/* ============ 2. 애플리케이션 상태 ============
+   화면 전체가 공유하는 가변 상태를 한곳에 모아 둔다.
+   여기 있는 값이 바뀌면 순위 캐시(invalidateRank)를 반드시 무효화할 것. */
+let weights      = {...PURPOSES[0].w};  // 항목별 가중치 (%)
+let activePurpose= 'balanced';          // 선택된 목적 프리셋 (직접 조정 시 null)
+let selected     = null;                // 분석 탭에서 선택된 국가명
+let lastShift    = null;                // 직전 조정으로 인한 순위 변동 요약
+let era          = 'now';               // 기후 시나리오: now | e35 | e50 | e80 | e100
+let itMW         = 50;                  // 시뮬레이터의 IT 부하 규모 (MW)
+let gpuShare     = 60;                  // 전력 중 GPU 랙이 차지하는 비율 (%)
+let coolingMode  = 'water';             // 냉각 방식 (air | water | free | liquid)
+let decorrelate  = false;               // 지표 중복 보정 사용 여부
+let filterMode   = 'off';               // 지도 색상 필터 (off | total | 항목키)
+let liveOn       = false;               // 실시간 기온 반영 여부
+let liveTimer    = null;                // 실시간 갱신 타이머 핸들
+let liveState    = {s:'idle', at:null, msg:''};  // 실시간 갱신 상태
+
+const totalWeight = ()=> FKEYS.reduce((a,k)=>a+weights[k],0);
+/* ---- 기후 시나리오 ----
+   IPCC 중간 경로(SSP2-4.5) 기준 전지구 평균기온 상승폭을 단순 적용한다.
+   기온 외에 물 부족(건조지 가중)과 기상재해 위험도 함께 악화시킨다. */
+const ERAS={
+  now :{dt:0,   label:'현재'},
+  e35 :{dt:1.1, label:'2035'},
+  e50 :{dt:2.2, label:'2050'},
+  e80 :{dt:3.2, label:'2080'},
+  e100:{dt:3.9, label:'2100'},
+};
+const scoreToC = sc => (100-sc)*35/92 - 5;   // 기온 점수 → °C 역산
+
+/* 지역별 기후변화 증폭 계수
+   전 세계가 똑같이 더워지지 않는다. 북극은 지구 평균의 2~3배로 빨리 데워지고(북극 증폭),
+   열대는 상대적으로 완만하다. 남반구는 바다 비중이 커 북반구보다 상승폭이 작다. */
+function warmFactor(lat){
+  const a=Math.min(Math.abs(lat||0), 90);
+  const amp = Math.pow(a/90, 2.2);
+  return lat>=0 ? 0.75 + 1.95*amp    // 북반구: 강한 북극 증폭
+                : 0.75 + 0.95*amp;   // 남반구: 해양이 완충
+}
+/* 물 부족 심화 계수 — 아열대 건조대(위도 20~35°)에서 가장 크게 악화된다 */
+function droughtFactor(lat){
+  const a=Math.abs(lat||0);
+  return 0.45 + 1.35*Math.exp(-Math.pow((a-27)/14, 2));
+}
+/* 기상재해 강화 계수 — 태풍·허리케인이 발생하는 저·중위도에서 크다 */
+function stormFactor(lat){
+  const a=Math.abs(lat||0);
+  return 0.5 + 1.3*Math.exp(-Math.pow((a-20)/18, 2));
+}
+
+function mval(c,k,eraKey){
+  const scenario = ERAS[eraKey] || ERAS[era] || ERAS.now;
+  const dt = scenario.dt;
+  if(!dt) return c[k];
+  const lat = (typeof c.lat==='number') ? c.lat : 45;
+  if(k==='temp') return tempScore(scoreToC(c.temp) + dt*warmFactor(lat));
+  if(k==='water'){
+    const dry = c.water<55 ? 0.22 : 0.09;      // 이미 건조한 곳이 더 크게 악화
+    return Math.max(2, Math.round(c.water*(1-(dt/2.2)*dry*droughtFactor(lat))));
+  }
+  if(k==='risk') return Math.max(5, Math.round(c.risk - dt*2.2*stormFactor(lat)));
+  return c[k];
+}
+function adjust(c, eraKey){
+  const o={...c};
+  FKEYS.forEach(k=>o[k]=mval(c,k,eraKey));
+  const w=effectiveWeights(), tw=effTotal()||1;
+  o.score=FKEYS.reduce((a,k)=>a+o[k]*w[k],0)/tw;
+  return o;
+}
+// 전역 era 를 건드리지 않고 특정 시나리오의 순위를 계산한다
+function rankedFor(eraKey){
+  return RANKED_SET.map(c=>adjust(c,eraKey)).sort((a,b)=>b.score-a.score);
+}
+
+/* ---- 지표 간 중복 보정 ----
+   8개 항목은 서로 독립이 아니다. 예를 들어 전력망 안정성과 인터넷 인프라는 r=0.8 이상으로
+   함께 움직이므로, 단순 가중합을 하면 같은 성질이 두 번 반영된다.
+   상관이 0.5를 넘는 만큼 유효 가중치를 깎아 중복분을 줄인다. */
+let _corr = null;
+function corrMatrix(){
+  if(_corr) return _corr;
+  const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  const col=k=>RANKED_SET.map(c=>c[k]);
+  _corr={};
+  FKEYS.forEach(a=>{ _corr[a]={};
+    FKEYS.forEach(b=>{
+      const x=col(a), y=col(b), mx=mean(x), my=mean(y);
+      let n=0,dx=0,dy=0;
+      for(let i=0;i<x.length;i++){ n+=(x[i]-mx)*(y[i]-my); dx+=(x[i]-mx)**2; dy+=(y[i]-my)**2; }
+      _corr[a][b] = (dx&&dy) ? n/Math.sqrt(dx*dy) : 0;
+    });
+  });
+  return _corr;
+}
+function effectiveWeights(){
+  if(!decorrelate) return weights;
+  const C=corrMatrix(), out={};
+  FKEYS.forEach(k=>{
+    let overlap=0;
+    FKEYS.forEach(j=>{ if(j!==k) overlap += Math.max(0, Math.abs(C[k][j]) - 0.5); });
+    out[k] = weights[k] / (1 + overlap);
+  });
+  return out;
+}
+function effTotal(){ const w=effectiveWeights(); return FKEYS.reduce((a,k)=>a+w[k],0); }
+
+let _rankCache=null;
+function invalidateRank(){ _rankCache=null; }
+function ranked(){
+  // map 은 콜백에 (요소, 인덱스)를 넘긴다. adjust 의 2번째 인자가 eraKey 이므로
+  // adjust 를 그대로 넘기면 인덱스가 시나리오 키로 새어 들어간다.
+  if(!_rankCache) _rankCache = RANKED_SET.map(c=>adjust(c)).sort((a,b)=>b.score-a.score);
+  return _rankCache;
+}
+const color = s => s>=85?'#4FBF87' : s>=65?'#E0A63F' : '#D2634A';
+const stars = s => { const n=Math.round(s/20); return '★★★★★'.slice(0,n)+'☆☆☆☆☆'.slice(0,5-n); };
+
+/* ============ 3. 탭 ============ */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+    document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected','false'));
+    t.classList.add('on'); t.setAttribute('aria-selected','true');
+    document.getElementById(t.dataset.t+'Pane').classList.add('on');
+    if(t.dataset.t==='map') setTimeout(()=>map.invalidateSize(), 60);
+  };
+});
+
+/* ============ 4. 지도 ============ */
+const map = L.map('map',{zoomControl:false,worldCopyJump:true,minZoom:0,maxZoom:12,
+  zoomSnap:0.5,zoomDelta:0.5,wheelPxPerZoomLevel:90,
+  maxBounds:[[-85,-Infinity],[85,Infinity]],maxBoundsViscosity:0.8});
+
+function coverZoom(){
+  const s = map.getSize();
+  return Math.max(0, Math.ceil(Math.max(Math.log2(Math.max(s.x,1)/256), Math.log2(Math.max(s.y,1)/256))*2)/2);
+}
+function goHome(){ map.invalidateSize(); const z=coverZoom(); map.setMinZoom(z); map.setView([20,10],z,{animate:false}); }
+goHome(); window.addEventListener('load',goHome); setTimeout(goHome,300);
+window.addEventListener('resize',()=>{ map.invalidateSize(); const z=coverZoom(); map.setMinZoom(z);
+  if(map.getZoom()<z) map.setZoom(z); });
+
+const TILES = [
+  {name:'단순 지도',labels:false,url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png',
+   o:{attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}},
+  {name:'자연 지형',labels:false,url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}',
+   o:{attribution:'© Esri',maxNativeZoom:8,maxZoom:19}},
+  {name:'다크 지도',labels:false,url:'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
+   o:{attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}},
+  {name:'표준 지도',labels:true,url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+   o:{attribution:'© OpenStreetMap contributors',maxZoom:19}},
+];
+// 타일이 실패했을 때 표시할 투명 이미지 (오류가 연쇄되지 않게 한다)
+const BLANK_TILE='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+let baseLayer=null, tileIdx=0, switching=false;
+
+function loadTiles(i){
+  if(i>=TILES.length) i=0;
+  tileIdx=i; switching=false;
+  if(baseLayer){ baseLayer.off(); map.removeLayer(baseLayer); }
+  const s=TILES[i];
+  baseLayer=L.tileLayer(s.url, Object.assign({errorTileUrl:BLANK_TILE}, s.o));
+  let err=0, ok=0;
+  baseLayer.on('tileload',()=>{
+    ok++;
+    const mn=document.getElementById('mapNotice');
+    if(mn) mn.style.display='none';
+  });
+  baseLayer.on('tileerror',()=>{
+    err++;
+    if(ok>0 || switching || err<4) return;
+    switching=true;
+    baseLayer.off('tileerror');          // 같은 판정이 반복되지 않게 즉시 해제
+    // Leaflet 이벤트 처리 중에 레이어를 갈아끼우면 내부 상태가 꼬이므로 다음 틱으로 미룬다
+    setTimeout(()=>{
+      try{
+        if(i+1<TILES.length) loadTiles(i+1);
+        else{
+          const mn=document.getElementById('mapNotice');
+          if(mn) mn.style.display='block';
+        }
+      }catch(e){ console.warn('[Atlas] 타일 전환 실패:', e && e.message); }
+    },0);
+  });
+  baseLayer.addTo(map); baseLayer.bringToBack();
+  if(typeof labelLayer!=='undefined'){ s.labels ? map.removeLayer(labelLayer) : labelLayer.addTo(map); }
+  // 어두운 지도에서는 라벨을 밝은 색으로 반전한다
+  document.getElementById('map').classList.toggle('dark-map', s.name==='다크 지도');
+}
+
+// 한국어 국가 라벨
+const MAJOR = new Set(['러시아','중국','미국','캐나다','브라질','호주','인도','아르헨티나','카자흐스탄',
+  '그린란드','알제리','사우디아라비아','멕시코','인도네시아','리비아','수단','이란','몽골','일본','대한민국']);
+const SMALL = new Set(['북한','대만','싱가포르','캄보디아','라오스','네팔','스리랑카','방글라데시','조지아',
+  '이스라엘','요르단','시리아','예멘','오만','아랍에미리트','벨라루스','체코','헝가리','세르비아','크로아티아',
+  '불가리아','오스트리아','스위스','벨기에','네덜란드','아일랜드','포르투갈','덴마크','에스토니아','라트비아',
+  '리투아니아','튀니지','가나','짐바브웨','보츠와나','나미비아','모잠비크','과테말라','쿠바','우루과이',
+  '파라과이','에콰도르','볼리비아','파푸아뉴기니']);
+const LABELS = [['대한민국',36.5,127.9],['북한',40,127],['일본',36.2,138.3],['중국',35,103],['몽골',46.9,103.8],
+['대만',23.7,121],['베트남',14.1,108.3],['태국',15.9,100.9],['필리핀',12.9,121.8],['인도네시아',-2.5,118],
+['말레이시아',4.2,102],['싱가포르',1.35,103.8],['미얀마',21.9,96],['캄보디아',12.6,104.9],['라오스',19.9,102.5],
+['인도',22.6,79],['파키스탄',30.4,69.3],['방글라데시',23.7,90.4],['네팔',28.4,84.1],['스리랑카',7.9,80.8],
+['카자흐스탄',48,66.9],['우즈베키스탄',41.4,64.6],['아프가니스탄',33.9,67.7],['이란',32.4,53.7],['이라크',33.2,43.7],
+['사우디아라비아',24,45.1],['예멘',15.6,48],['오만',21.5,56],['아랍에미리트',24,54],['튀르키예',39,35.2],
+['시리아',35,38],['이스라엘',31.4,35],['요르단',31.3,36.5],['조지아',42.3,43.4],['러시아',61.5,90],
+['우크라이나',48.4,31.2],['벨라루스',53.7,27.9],['폴란드',52,19.4],['독일',51.2,10.4],['프랑스',46.6,2.2],
+['스페인',40,-3.7],['포르투갈',39.5,-8.2],['이탈리아',42.8,12.6],['영국',54,-2.5],['아일랜드',53.2,-8],
+['네덜란드',52.2,5.5],['벨기에',50.6,4.6],['스위스',46.8,8.2],['오스트리아',47.6,14.1],['체코',49.8,15.4],
+['헝가리',47.1,19.4],['루마니아',45.9,25],['불가리아',42.7,25.4],['그리스',39,22],['세르비아',44.1,20.9],
+['크로아티아',45.1,16.4],['노르웨이',62.5,9.5],['스웨덴',62,15.5],['핀란드',63.5,26],['덴마크',56,9.6],
+['아이슬란드',64.9,-18.5],['에스토니아',58.7,25.6],['라트비아',56.9,24.7],['리투아니아',55.3,23.9],
+['이집트',26.8,30],['리비아',26.5,17.5],['알제리',28.1,2.6],['모로코',31.9,-7.1],['튀니지',34,9.6],
+['수단',15.5,30.3],['에티오피아',9.2,39.6],['케냐',0.2,37.9],['탄자니아',-6.4,34.9],['나이지리아',9.1,8.7],
+['니제르',17.6,8.1],['차드',15.5,18.7],['말리',17.6,-4],['가나',7.9,-1],['콩고 민주\n공화국',-2.9,23.6],
+['앙골라',-11.2,17.9],['나미비아',-22,17.2],['보츠와나',-22.3,24.7],['짐바브웨',-19,29.2],
+['남아프리카\n공화국',-29,24.7],['마다가스카르',-18.8,46.9],['모잠비크',-18.7,35.5],['미국',39.5,-98.4],
+['캐나다',56.1,-106.3],['멕시코',23.6,-102.5],['과테말라',15.8,-90.2],['쿠바',21.5,-79.5],['브라질',-10.8,-52.9],
+['아르헨티나',-35.4,-64.2],['칠레',-33.5,-71],['페루',-9.2,-75],['콜롬비아',4.6,-74.3],['볼리비아',-16.3,-63.6],
+['베네수엘라',6.4,-66.6],['파라과이',-23.4,-58.4],['우루과이',-32.5,-55.8],['에콰도르',-1.8,-78.2],
+['호주',-25.3,133.8],['뉴질랜드',-41.5,172.8],['파푸아뉴기니',-6.3,143.9],['그린란드',72,-42]];
+
+const tierOf = n => MAJOR.has(n) ? 1 : (SMALL.has(n) ? 3 : 2);
+const labelLayer = L.layerGroup().addTo(map);
+LABELS.forEach(([n,lat,lng])=>{
+  L.marker([lat,lng],{interactive:false,keyboard:false,zIndexOffset:-500,icon:L.divIcon({
+    className:'',iconSize:[0,0],iconAnchor:[0,0],
+    html:`<div class="country-label" data-tier="${tierOf(n)}">${n.replace(/\n/g,'<br>')}</div>`
+  })}).addTo(labelLayer);
+});
+loadTiles(0);
+
+let labelEls=null;
+function labelVis(){
+  if(!labelEls) labelEls=Array.from(document.querySelectorAll('.country-label'));
+  const z=map.getZoom();
+  labelEls.forEach(el=>{
+    const t=+el.dataset.tier, min = t===1?0 : t===2?3 : 4.5;
+    const hide = z<min, cur = el.style.display==='none';
+    if(cur!==hide) el.style.display = hide?'none':'';
+  });
+}
+function labelScale(){
+  const s=Math.max(9.5,Math.min(14,7.5+map.getZoom()*0.75));
+  document.documentElement.style.setProperty('--label-size',s.toFixed(1)+'px');
+}
+
+// 데이터센터 마커 — 점수는 현재 가중치로 실시간 계산한다
+const markers={}; let activeId=null;
+/* ---- 같은 도시에 여러 지점이 있으면 하나로 묶는다 ----
+   프랑크푸르트에는 AWS·Oracle·Equinix 세 곳이 좌표까지 똑같아 그냥 두면
+   맨 위 마커 하나만 클릭된다. 25km 이내를 한 묶음으로 만들고 개수를 표시한다. */
+const GROUPS=[];
+(function buildGroups(){
+  const used=new Set();
+  SITES.forEach(s=>{
+    if(used.has(s.id)) return;
+    used.add(s.id);
+    const members=[s];
+    SITES.forEach(t=>{
+      if(used.has(t.id)) return;
+      if(hav({lat:s.lat,lng:s.lng},{lat:t.lat,lng:t.lng})<25){ members.push(t); used.add(t.id); }
+    });
+    GROUPS.push({
+      id: GROUPS.length,
+      lat: members.reduce((a,x)=>a+x.lat,0)/members.length,
+      lng: members.reduce((a,x)=>a+x.lng,0)/members.length,
+      sites: members,
+    });
+  });
+  SITES.forEach(s=>{ s._g = GROUPS.findIndex(g=>g.sites.includes(s)); });
+})();
+
+// 묶음의 대표 점수는 소속 지점 중 최고점
+function groupScore(g){ return Math.max(...g.sites.map(x=>siteEval(x).total)); }
+function applyMarkerColor(g){
+  const el=document.getElementById(`mk-${g.id}`);
+  if(el) el.style.color=color(groupScore(g));
+}
+GROUPS.forEach(g=>{
+  const n=g.sites.length;
+  const mk=L.marker([g.lat,g.lng],{icon:L.divIcon({className:'',iconSize:[16,16],iconAnchor:[8,8],
+    html:`<div class="dc-marker${n>1?' multi':''}" id="mk-${g.id}" style="color:${color(groupScore(g))}">
+      <div class="ring2"></div><div class="ring"></div><div class="core"></div>
+      ${n>1?`<span class="mk-count">${n}</span>`:''}</div>`})}).addTo(map);
+  mk.on('click',()=>openGroup(g.id));
+  mk.on('add',()=>{ applyMarkerColor(g); requestAnimationFrame(()=>applyMarkerColor(g)); });
+  markers[g.id]=mk;
+});
+function updateMarkerColors(){ GROUPS.forEach(applyMarkerColor); }
+
+/* ---- 색상 필터(그리드) ---- */
+const gridRenderer=L.canvas({padding:0.5});
+const gridLayer=L.layerGroup();
+let gridCells=null, gridRects=null;
+const FILTERS=[{id:'off',l:'끄기'},{id:'total',l:'종합 적합도'},...FACTORS.map(f=>({id:f.key,l:f.label}))];
+
+
+
+function buildGrid(){
+  if(gridCells) return gridCells;
+  gridCells=[]; const LA=2.5, LO=3;
+  for(let lat=-56;lat<80;lat+=LA) for(let lng=-180;lng<180;lng+=LO){
+    const cLat=lat+LA/2, cLng=lng+LO/2;
+    const {ref,dist}=nearest(cLat,cLng);
+    if(dist>850) continue;              // 육지 기준점에서 너무 멀면 제외
+    if(nearestSea(cLat,cLng) < dist) continue;  // 바다에 더 가까우면 제외
+    const rem=Math.max(0,Math.min(1,(dist-400)/1600));
+    const cellTC = ref.tc + (estTemp(cLat) - estTemp(ref.lat));   // 지점 평가와 동일한 규칙
+    const m={lat:cLat, tc:cellTC, ci:ref.ci, temp:tempScore(cellTC),
+             power:ref.power, renew:ref.renew, water:ref.water,
+      grid:Math.round(ref.grid*(1-rem*0.45)), net:Math.round(ref.net*(1-rem*0.55)),
+      risk:ref.risk, land:Math.round(Math.min(100,ref.land+rem*10))};
+    gridCells.push({bounds:[[lat,lng],[lat+LA,lng+LO]],m});
+  }
+  return gridCells;
+}
+const heat = v => v>=85?'#2E9E63' : v>=75?'#68B85C' : v>=65?'#C9B23E' : v>=55?'#D68A38' : v>=45?'#CE6A3E' : '#B94A3C';
+const cellValue = (m,mode) => {
+  // 탄소집약도는 낮을수록 좋으므로 점수로 뒤집어 표시한다
+  if(mode==='carbon') return Math.max(5, Math.min(100, Math.round(100 - (m.ci||500)/7.5)));
+  if(mode!=='total') return mval(m,mode);
+  const w=effectiveWeights(), tw=effTotal()||1;
+  return FKEYS.reduce((a,k)=>a+mval(m,k)*w[k],0)/tw;
+};
+
+function gridVis(){
+  if(filterMode==='off') return;
+  const show=map.getZoom()<=5.5;
+  if(show&&!map.hasLayer(gridLayer)) gridLayer.addTo(map);
+  if(!show&&map.hasLayer(gridLayer)) map.removeLayer(gridLayer);
+  document.getElementById('gridHint').style.display = show?'none':'block';
+}
+function paintGrid(){
+  if(filterMode==='off'){
+    if(map.hasLayer(gridLayer)) map.removeLayer(gridLayer);
+    document.getElementById('gridHint').style.display='none';
+    renderLegend(); return;
+  }
+  if(!gridRects){
+    gridRects=buildGrid().map(cell=>{
+      const r=L.rectangle(cell.bounds,{renderer:gridRenderer,stroke:false,interactive:false,
+        fillColor:heat(cellValue(cell.m,filterMode)),fillOpacity:0.5});
+      r._m=cell.m; gridLayer.addLayer(r); return r;
+    });
+    Object.values(markers).forEach(mk=>mk.setZIndexOffset(1000));
+  }else{
+    gridRects.forEach(r=>r.setStyle({fillColor:heat(cellValue(r._m,filterMode))}));
+  }
+  if(!map.hasLayer(gridLayer)) gridLayer.addTo(map);
+  gridVis(); renderLegend();
+}
+function renderLegend(){
+  const b=document.getElementById('legendBody'), t=document.getElementById('legendTitle');
+  if(filterMode==='off'){
+    t.textContent='데이터센터 적합도';
+    b.innerHTML=`<div class="row"><span class="dot" style="background:#3EA76B"></span> 85 – 100 · 매우 우수</div>
+      <div class="row"><span class="dot" style="background:#D9962C"></span> 65 – 84 · 양호</div>
+      <div class="row"><span class="dot" style="background:#C94830"></span> 65 미만 · 미흡</div>`;
+  }else{
+    t.textContent=FILTERS.find(f=>f.id===filterMode).l+' 분포';
+    b.innerHTML=`<div class="scale">${[40,50,60,70,80,90].map(v=>`<i style="background:${heat(v)}"></i>`).join('')}</div>
+      <div class="scale-lb"><span>◀ 낮음 (40)</span><span>높음 (90) ▶</span></div>`;
+  }
+}
+function renderFilters(){
+  const el=document.getElementById('filterSelect');
+  if(!el.dataset.init){
+    el.innerHTML=FILTERS.map(f=>`<option value="${f.id}">${f.l}</option>`).join('');
+    el.addEventListener('change',()=>{ filterMode=el.value; paintGrid(); });
+    el.dataset.init='1';
+  }
+  el.value=filterMode;
+}
+renderFilters(); renderLegend();
+
+/* ---- 기업 · 지역 필터 ---- */
+let coFilter='all', regionFilter='all';
+// 목록은 쓰이는 시점에 한 번만 만든다 (선언 순서에 영향받지 않게)
+let _companies=null, _regions=null;
+function companyList(){
+  if(!_companies) _companies=[...new Set(SITES.map(s=>s.co))].sort();
+  return _companies;
+}
+function regionList(){
+  if(!_regions) _regions=[...new Set(RANKED_SET.map(c=>c.region).filter(Boolean))].sort();
+  return _regions;
+}
+
+function siteVisible(x){
+  if(coFilter!=='all' && x.co!==coFilter) return false;
+  if(regionFilter!=='all'){
+    const c=RANKED_SET.find(k=>k.n===x.ct);
+    if(!c || c.region!==regionFilter) return false;
+  }
+  return true;
+}
+function applySiteFilter(){
+  let shown=0;
+  GROUPS.forEach(g=>{
+    const vis=g.sites.some(siteVisible);
+    const mk=markers[g.id];
+    if(vis && !map.hasLayer(mk)) mk.addTo(map);
+    if(!vis && map.hasLayer(mk)) map.removeLayer(mk);
+    if(vis) shown += g.sites.filter(siteVisible).length;
+  });
+  const el=document.getElementById('siteFilterCount');
+  if(el) el.textContent = (coFilter==='all'&&regionFilter==='all')
+    ? `전체 ${SITES.length}곳` : `${shown}곳 표시 중`;
+}
+function renderSiteFilter(){
+  const box=document.getElementById('siteFilter'); if(!box) return;
+  box.innerHTML=`
+    <select id="coSel" aria-label="기업 필터">
+      <option value="all">전체 기업 (${companyList().length})</option>
+      ${companyList().map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}
+    </select>
+    <select id="regionSel" aria-label="지역 필터">
+      <option value="all">전체 지역</option>
+      ${regionList().map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('')}
+    </select>
+    <span class="sf-count" id="siteFilterCount">전체 ${SITES.length}곳</span>`;
+  document.getElementById('coSel').onchange=e=>{ coFilter=e.target.value; applySiteFilter(); };
+  document.getElementById('regionSel').onchange=e=>{ regionFilter=e.target.value; applySiteFilter(); };
+}
+
+/* ---- 이 위치를 고른 이유 (규칙 기반 해설) ---- */
+function whyHere(x){
+  const r=siteEval(x);
+  const m=r.m, reasons=[];
+  if(m.temp>=70) reasons.push('연평균 기온이 낮아 외기 냉방으로 냉각비를 크게 아낄 수 있습니다');
+  if(m.power>=75) reasons.push('전력 단가가 낮아 장기 운영비가 유리합니다');
+  if(m.renew>=70) reasons.push('재생에너지 비중이 높아 탄소중립 목표에 부합합니다');
+  if(m.net>=88) reasons.push('해저케이블·백본이 밀집해 지연시간이 짧고 이용자 접근성이 좋습니다');
+  if(m.grid>=88) reasons.push('전력망이 안정적이라 무중단 운영에 유리합니다');
+  if(m.land>=75) reasons.push('부지 비용이 낮아 대규모 캠퍼스를 조성하기 좋습니다');
+  if(m.risk>=85) reasons.push('지진·태풍 위험이 낮습니다');
+  if(!reasons.length) reasons.push('개별 지표보다 시장 접근성과 기존 인프라를 우선한 선택으로 보입니다');
+  const weak=FKEYS.map(k=>({k,v:m[k]})).sort((a,b)=>a.v-b.v)[0];
+  return {reasons:reasons.slice(0,3), weak, total:r.total};
+}
+
+/* ---- 지점 평가 ---- */
+const mpanel=document.getElementById('mpanel'), mpanelIn=document.getElementById('mpanelIn');
+let probeMarker=null;
+// 함수 선언으로 두어야 마커 생성 등 앞쪽 코드에서도 안전하게 쓸 수 있다
+function estTemp(lat){ return 30 - Math.abs(lat)*0.62; }
+function tempScore(t){ return Math.round(Math.max(5,Math.min(100,100-(t+5)*(92/35)))); }
+
+function closePanel(){
+  if(activeId!==null){ document.getElementById(`mk-${activeId}`)?.classList.remove('selected'); activeId=null; }
+  mpanel.classList.remove('open');
+}
+// 실제 운영 중인 지점은 인프라가 이미 갖춰져 있으므로 원거리 감점을 적용하지 않는다
+function siteEval(s){
+  // 지점→기준점 매핑과 위도 기반 기온은 고정값이므로 최초 1회만 계산한다
+  if(!s._ref){
+    s._ref=nearest(s.lat,s.lng,true).ref;
+    s._est=s._ref.tc + (estTemp(s.lat) - estTemp(s._ref.lat));
+  }
+  const ref=s._ref, est=s._est;
+  const raw={lat:s.lat,temp:tempScore(est),power:ref.power,renew:ref.renew,grid:ref.grid,
+             water:ref.water,net:ref.net,risk:ref.risk,land:ref.land};
+  const m={}; FKEYS.forEach(k=>m[k]=mval(raw,k));
+  const w=effectiveWeights(), tw=effTotal()||1;
+  const total=FKEYS.reduce((a,k)=>a+m[k]*w[k],0)/tw;
+  return {m,total,ref,est};
+}
+// 묶음의 대표 지명 — 가장 많이 등장하는 지명을 쓴다
+function cityLabel(g){
+  const cnt={};
+  g.sites.forEach(x=>cnt[x.pl]=(cnt[x.pl]||0)+1);
+  return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
+}
+
+// 묶음 카드: 여러 지점이면 목록을 먼저 보여주고, 고른 지점의 상세를 아래에 붙인다
+function openGroup(gid, siteId){
+  const g=GROUPS[gid]; if(!g) return;
+  if(probeMarker){ map.removeLayer(probeMarker); probeMarker=null; }
+  if(activeId!==null) document.getElementById(`mk-${activeId}`)?.classList.remove('selected');
+  activeId=gid;
+  document.getElementById(`mk-${gid}`)?.classList.add('selected');
+  map.panTo([g.lat,g.lng],{animate:true});
+
+  const ranked=g.sites.map(x=>({x, r:siteEval(x)})).sort((a,b)=>b.r.total-a.r.total);
+  const cur = ranked.find(o=>o.x.id===siteId) || ranked[0];
+  const s=cur.x, r=cur.r, c=color(r.total);
+  const es=FKEYS.map(k=>({k,v:r.m[k]})).sort((a,b)=>b.v-a.v);
+  const grade=r.total>=85?'입지가 매우 우수합니다':r.total>=65?'입지가 양호합니다':'입지 조건이 불리한 편입니다';
+
+  const list = g.sites.length>1 ? `
+    <div class="sec-t">이 지역의 데이터센터 ${g.sites.length}곳</div>
+    <div class="grp-list">${ranked.map(o=>`
+      <button class="grp-item ${o.x.id===s.id?'on':''}" data-sid="${o.x.id}">
+        <span class="gi-nm">${esc(o.x.co)} <em>${esc(o.x.pl)}</em></span>
+        <span class="gi-sc" style="color:${color(o.r.total)}">${o.r.total.toFixed(1)}</span>
+      </button>`).join('')}</div>` : '';
+
+  mpanelIn.innerHTML=`
+    <div class="p-eyebrow"><span>운영 중 데이터센터${g.sites.length>1?` // ${g.sites.length}곳`:''}</span>
+      <span class="p-close" id="cbtn">닫기 ✕</span></div>
+    ${g.sites.length>1
+      ? `<h2>${esc(s.ct)} · ${esc(cityLabel(g))}</h2>
+         <div class="sub">서로 다른 사업자 ${g.sites.length}곳이 모여 있습니다</div>`
+      : `<h2>${esc(s.co)} ${esc(s.pl)}</h2><div class="sub">${esc(s.ct)} · ${grade}</div>`}
+    ${list}
+    ${g.sites.length>1
+      ? `<div class="sec-t">${esc(s.co)} ${esc(s.pl)} · ${grade}</div>` : ''}
+    <div class="score-block"><div class="num" style="color:${c}">${r.total.toFixed(1)}<small>/100</small></div>
+      <div class="stars" style="color:${c}">${stars(r.total)}</div></div>
+    <div class="sec-t">적합 요인</div>
+    <ul class="flist good">${es.slice(0,3).map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <div class="sec-t">고려 사항</div>
+    <ul class="flist bad">${es.slice(-3).reverse().map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <div class="metrics">${FKEYS.map(k=>`<div class="metric"><div class="lbl">${FLABEL[k]}</div>
+      <div class="bar"><i style="width:${r.m[k]}%;background:${color(r.m[k])}"></i></div>
+      <div class="val">${r.m[k]} / 100</div></div>`).join('')}</div>
+    <div class="sec-t">왜 이 위치를 골랐을까</div>
+    <ul class="flist good">${whyHere(s).reasons.map(t=>`<li><span class="mk">›</span>${t}</li>`).join('')}</ul>
+    <div class="note-txt" style="font-size:11.5px">다만 ${FLABEL[whyHere(s).weak.k]}는
+      ${whyHere(s).weak.v}점으로 이 지점의 가장 큰 약점입니다.</div>
+    <div class="sec-t">평가 방식</div>
+    <div class="note-txt">기온은 연평균 ${r.est.toFixed(1)}°C, 나머지 항목은
+      ${esc(r.ref.n.replace('\n',''))} 국가값을 사용했습니다. 현재
+      <b style="color:var(--ink)">${PURPOSES.find(p=>p.id===activePurpose)?.name || '사용자 지정'}</b>
+      가중치 기준이라, 분석 탭에서 목적을 바꾸면 이 점수도 함께 달라집니다.
+      ${g.sites.length>1?`<br><br>같은 도시에 ${g.sites.length}곳이 모여 있어 지도에서는 하나로 묶어 표시합니다.`:''}</div>`;
+  mpanel.classList.add('open');
+  document.getElementById('cbtn').onclick=closePanel;
+  mpanelIn.querySelectorAll('.grp-item').forEach(b=>
+    b.onclick=()=>openGroup(gid, +b.dataset.sid));
+}
+// 검색 등에서 개별 지점을 지정해 열 때 사용
+function selectSite(id){
+  const s=SITES.find(x=>x.id===id);
+  if(!s) return;
+  // 필터에 걸려 지도에서 숨겨진 지점이면 필터를 풀고 다시 보여 준다
+  if(!siteVisible(s)){
+    coFilter='all'; regionFilter='all';
+    renderSiteFilter(); applySiteFilter();
+    const note=document.getElementById('siteFilterCount');
+    if(note) note.textContent='선택한 지점을 보여주려고 필터를 해제했습니다';
+  }
+  openGroup(s._g, id);
+}
+
+async function evalPoint(lat,lng){
+  const {ref,dist}=nearest(lat,lng,true);
+  let liveC=null, elev=null, clim=null;
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&current=temperature_2m`);
+    if(r.ok){ const d=await r.json();
+      if(d.current&&typeof d.current.temperature_2m==='number') liveC=d.current.temperature_2m;
+      if(typeof d.elevation==='number') elev=d.elevation; }
+  }catch(e){}
+  try{ clim=await climateProfile(lat,lng); }catch(e){}
+  // 실제 관측된 연평균 기온이 있으면 위도 추정 대신 그 값으로 채점한다
+  const est = (clim && clim.annualMean!==null)
+    ? clim.annualMean
+    : ref.tc + (estTemp(lat) - estTemp(ref.lat));
+  const m={lat,temp:tempScore(est),power:ref.power,renew:ref.renew,grid:ref.grid,
+           water:ref.water,net:ref.net,risk:ref.risk,land:ref.land};
+  const rem=Math.max(0,Math.min(1,(dist-400)/1600));
+  m.net=Math.round(m.net*(1-rem*0.55)); m.grid=Math.round(m.grid*(1-rem*0.45));
+  m.land=Math.round(Math.min(100,m.land+rem*10));
+  const w=effectiveWeights(), tw=effTotal()||1;
+  const total=FKEYS.reduce((a,k)=>a+m[k]*w[k],0)/tw;
+  return {lat,lng,ref,liveC,est,elev,m,total,rem,clim};
+}
+function renderProbe(r){
+  const c=color(r.total);
+  const es=FKEYS.map(k=>({k,v:r.m[k]})).sort((a,b)=>b.v-a.v);
+  const grade=r.total>=85?'매우 유망한 후보지':r.total>=65?'검토해볼 만한 후보지':'권장하기 어려운 지역';
+  mpanelIn.innerHTML=`
+    <div class="p-eyebrow"><span>지점 평가 // ${r.lat.toFixed(2)}°, ${r.lng.toFixed(2)}°</span>
+      <span class="p-close" id="cbtn">닫기 ✕</span></div>
+    <h2>${grade}</h2>
+    <div class="sub">기준 국가: ${r.ref.n.replace('\n','')}${r.elev!==null?` · 해발 ${Math.round(r.elev)}m`:''}</div>
+    <div class="score-block"><div class="num" style="color:${c}">${r.total.toFixed(1)}<small>/100</small></div>
+      <div class="stars" style="color:${c}">${stars(r.total)}</div></div>
+    <div class="sec-t">유리한 조건</div>
+    <ul class="flist good">${es.slice(0,3).map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <div class="sec-t">불리한 조건</div>
+    <ul class="flist bad">${es.slice(-3).reverse().map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <div class="metrics">${FKEYS.map(k=>`<div class="metric"><div class="lbl">${FLABEL[k]}</div>
+      <div class="bar"><i style="width:${r.m[k]}%;background:${color(r.m[k])}"></i></div>
+      <div class="val">${r.m[k]} / 100</div></div>`).join('')}</div>
+    ${r.clim ? `<div class="sec-t">기후 프로필 <span style="text-transform:none;letter-spacing:0">최근 1년 실측</span></div>
+    <div class="clim-grid">
+      <div class="cl"><div class="ck">연평균 기온</div><div class="cv">${r.clim.annualMean.toFixed(1)}°C</div></div>
+      <div class="cl"><div class="ck">프리쿨링 가능 일수</div><div class="cv" style="color:${r.clim.freeCoolDays>=250?'var(--good)':r.clim.freeCoolDays>=120?'var(--mid)':'var(--bad)'}">${r.clim.freeCoolDays}일</div></div>
+      <div class="cl"><div class="ck">폭염 일수 (33°C↑)</div><div class="cv" style="color:${r.clim.heatDays<=5?'var(--good)':r.clim.heatDays<=40?'var(--mid)':'var(--bad)'}">${r.clim.heatDays}일</div></div>
+      ${r.clim.humidity!==null?`<div class="cl"><div class="ck">평균 습도</div><div class="cv">${r.clim.humidity.toFixed(0)}%</div></div>`:''}
+      ${r.clim.precip!==null?`<div class="cl"><div class="ck">연강수량</div><div class="cv">${Math.round(r.clim.precip)}mm</div></div>`:''}
+      <div class="cl"><div class="ck">외기 냉방 비율</div><div class="cv">${Math.round(r.clim.freeCoolDays/r.clim.days*100)}%</div></div>
+    </div>
+    <div class="note-txt" style="font-size:11.5px">일평균 18°C 이하인 날을 프리쿨링(외기 냉방) 가능일로 계산했습니다.
+      이 일수가 길수록 냉방기를 돌리지 않고 바깥 공기만으로 서버를 식힐 수 있어 전력 소비가 크게 줄어듭니다.</div>` : ''}
+    <div class="sec-t">판정 근거</div>
+    <div class="note-txt">기온 점수는 ${r.clim?`실측 연평균 ${r.est.toFixed(1)}°C`:`위도 기준 추정 ${r.est.toFixed(1)}°C`}로 계산했습니다${r.liveC!==null?` (현재 ${r.liveC.toFixed(1)}°C)`:''}.
+      나머지 항목은 가장 가까운 기준 국가인 <b style="color:var(--ink)">${r.ref.n.replace('\n','')}</b>의 값을 사용했고,
+      ${r.rem>0.15?'주요 인프라 중심지에서 떨어져 있어 전력망·통신을 감점했습니다.':'인프라 감점은 적용하지 않았습니다.'}
+      현재 <b style="color:var(--ink)">${PURPOSES.find(p=>p.id===activePurpose)?.name || '사용자 지정'}</b> 가중치 기준입니다.</div>`;
+  mpanel.classList.add('open');
+  document.getElementById('cbtn').onclick=closePanel;
+}
+async function probeAt(ll){
+  if(activeId!==null){ document.getElementById(`mk-${activeId}`)?.classList.remove('selected'); activeId=null; }
+  if(probeMarker) map.removeLayer(probeMarker);
+  probeMarker=L.marker(ll,{icon:L.divIcon({className:'',iconSize:[18,18],iconAnchor:[9,9],
+    html:'<div class="probe-pin"><div class="probe-core"></div><div class="probe-ring"></div></div>'})}).addTo(map);
+  mpanelIn.innerHTML='<div class="placeholder"><div class="glyph">◌</div><p>이 지점을 평가하는 중입니다…</p></div>';
+  mpanel.classList.add('open');
+  renderProbe(await evalPoint(ll.lat,ll.lng));
+}
+map.on('contextmenu',e=>probeAt(e.latlng));
+
+let longPressTimer=null, pressOrigin=null;
+const mapEl=document.getElementById('map');
+function cancelLongPress(){ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
+mapEl.addEventListener('touchstart',e=>{
+  if(e.touches.length!==1) return;
+  const touch=e.touches[0];
+  pressOrigin={x:touch.clientX,y:touch.clientY};
+  longPressTimer=setTimeout(()=>{
+    const box=mapEl.getBoundingClientRect();
+    probeAt(map.containerPointToLatLng(L.point(touch.clientX-box.left, touch.clientY-box.top)));
+    longPressTimer=null;
+  },600);
+},{passive:true});
+mapEl.addEventListener('touchmove',e=>{
+  if(!longPressTimer||!pressOrigin) return;
+  const touch=e.touches[0];
+  if(Math.abs(touch.clientX-pressOrigin.x)>12||Math.abs(touch.clientY-pressOrigin.y)>12) cancelLongPress();
+},{passive:true});
+mapEl.addEventListener('touchend',cancelLongPress,{passive:true});
+mapEl.addEventListener('touchcancel',cancelLongPress,{passive:true});
+
+document.getElementById('zoomIn').onclick=()=>map.zoomIn();
+document.getElementById('zoomOut').onclick=()=>map.zoomOut();
+document.getElementById('zoomReset').onclick=goHome;
+document.getElementById('mapStyleBtn').onclick=()=>loadTiles(tileIdx+1);
+
+// 축소했을 때 마커가 뭉쳐 보이지 않도록 크기만 조절한다 (지점은 항상 전부 표시)
+function updateMarkerScale(){
+  const z=map.getZoom();
+  document.documentElement.style.setProperty('--mk-scale', z<2.5 ? 0.62 : z<4 ? 0.8 : 1);
+}
+
+let zRaf=null;
+map.on('zoomend',()=>{ if(zRaf) cancelAnimationFrame(zRaf);
+  zRaf=requestAnimationFrame(()=>{ labelScale(); labelVis(); gridVis(); zRaf=null; }); });
+labelScale(); labelVis();
+
+/* ---- 검색 ---- */
+const SEARCH_INDEX = [
+  ...RANKED_SET.map(c=>({label:c.n, sub:c.region||'국가', lat:c.lat, lng:c.lng, type:'country', n:c.n})),
+  ...SITES.map(s=>({label:`${s.co} ${s.pl}`, sub:s.ct, lat:s.lat, lng:s.lng, type:'site', id:s.id})),
+];
+function runSearch(q){
+  const box=$('searchResults');
+  const term=q.trim().toLowerCase();
+  if(!term){ box.innerHTML=''; box.style.display='none'; return; }
+  const hits=SEARCH_INDEX.filter(x=>
+    x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)).slice(0,7);
+  if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; return; }
+  box.innerHTML=hits.map((h,i)=>
+    `<div class="sr" data-i="${i}"><span class="sr-nm">${esc(h.label)}</span><span class="sr-sub">${esc(h.sub)}</span></div>`).join('');
+  box.style.display='block';
+  box.querySelectorAll('.sr').forEach(el=>el.onclick=()=>{
+    const h=hits[+el.dataset.i];
+    map.flyTo([h.lat,h.lng], Math.max(map.getZoom(), 4.5), {duration:0.8});
+    if(h.type==='site') selectSite(h.id);
+    else { selected=h.n; invalidateRank(); updateRankList(); buildDetail(); showCountryCard(h.n); }
+    $('searchInput').value=''; box.style.display='none';
+  });
+}
+
+/* ---- 지도에서 국가를 누르면 국가 카드 ---- */
+function showCountryCard(name){
+  const c=ranked().find(x=>x.n===name); if(!c) return;
+  const sites=sitesInCountry(name), col=color(c.score);
+  // 최고·최저 항목을 한 번만 계산한다
+  const bestKey=FKEYS.reduce((a,k)=>c[k]>c[a]?k:a);
+  const worstKey=FKEYS.reduce((a,k)=>c[k]<c[a]?k:a);
+  if(probeMarker){ map.removeLayer(probeMarker); probeMarker=null; }
+  mpanelIn.innerHTML=`
+    <div class="p-eyebrow"><span>국가 분석 // ${c.region||''}</span>
+      <span class="p-close" id="cbtn">닫기 ✕</span></div>
+    <h2>${c.n}</h2>
+    <div class="sub">${sites.length?`데이터센터 ${sites.length}곳 운영 중`:'수록된 데이터센터 없음'}
+      · ${ERAS[era].label} 기준</div>
+    <div class="score-block"><div class="num" style="color:${col}">${c.score.toFixed(1)}<small>/100</small></div>
+      <div class="stars" style="color:${col}">${stars(c.score)}</div></div>
+    <div class="metrics">${FKEYS.map(k=>`<div class="metric"><div class="lbl">${FLABEL[k]}</div>
+      <div class="bar"><i style="width:${c[k]}%;background:${color(c[k])}"></i></div>
+      <div class="val">${c[k]} / 100</div></div>`).join('')}</div>
+    <div class="sec-t">50MW 데이터센터 가정 시</div>
+    <div class="clim-grid">
+      <div class="cl"><div class="ck">PUE</div><div class="cv">${estPUE(c.temp).toFixed(2)}</div></div>
+      <div class="cl"><div class="ck">연간 전력</div><div class="cv">${(50*estPUE(c.temp)*8760/1000).toFixed(0)}GWh</div></div>
+      <div class="cl"><div class="ck">탄소집약도</div><div class="cv">${estCarbonIntensity(c)}g</div></div>
+      <div class="cl"><div class="ck">전력 단가</div><div class="cv">$${estTariff(c.power).toFixed(3)}</div></div>
+    </div>
+    ${sites.length?`<div class="sec-t">운영 중인 데이터센터</div>
+      <ul class="flist good">${sites.slice(0,8).map(x=>
+        `<li><span class="mk">•</span>${esc(x.co)} ${esc(x.pl)}</li>`).join('')}</ul>`:''}
+    <div class="sec-t">분석 의견</div>
+    <div class="note-txt">${reasonOf(bestKey, c[bestKey])}.
+      반면 ${FLABEL[worstKey]} 항목은 ${c[worstKey]}점으로 가장 취약합니다.</div>
+    <button class="mini-btn" id="openInAnalysis" style="margin-top:14px;width:100%">
+      분석 탭에서 자세히 보기</button>`;
+  mpanel.classList.add('open');
+  $('cbtn').onclick=closePanel;
+  $('openInAnalysis').onclick=()=>{
+    selected=c.n; invalidateRank();
+    updateRankList(); buildDetail();
+    document.querySelector('.tab[data-t="analysis"]').click();
+  };
+}
+// 지도 위 오버레이(검색·범례·필터·줌)를 누를 때 지도 클릭·드래그가 함께 일어나지 않게 한다
+document.querySelectorAll('#map .ov').forEach(el=>{
+  L.DomEvent.disableClickPropagation(el);
+  L.DomEvent.disableScrollPropagation(el);
+});
+
+map.on('click', e=>{
+  const {ref,dist}=nearest(e.latlng.lat, e.latlng.lng, true);
+  if(dist>900) return;
+  if(nearestSea(e.latlng.lat, e.latlng.lng) < dist) return;  // 바다를 눌렀으면 무시
+  if(RANKED_SET.find(c=>c.n===ref.n)) showCountryCard(ref.n); // 분석 탭 선택은 건드리지 않는다
+});
+
+/* ---- 공유 링크 ---- */
+function shareURL(){
+  const p=new URLSearchParams();
+  p.set('c', selected); p.set('e', era); p.set('mw', itMW);
+  p.set('w', FKEYS.map(k=>weights[k]).join('-'));
+  if(activePurpose) p.set('p', activePurpose);
+  // file:// 로 열었을 때 origin 이 "null" 이 되므로 현재 주소에서 해시만 떼어낸다
+  return location.href.split('#')[0]+'#'+p.toString();
+}
+function restoreFromURL(){
+  if(!location.hash) return;
+  const p=new URLSearchParams(location.hash.slice(1));
+  const w=p.get('w');
+  if(w){ const v=w.split('-').map(Number);
+    if(v.length===FKEYS.length && v.every(x=>!isNaN(x))) FKEYS.forEach((k,i)=>weights[k]=v[i]); }
+  if(p.get('p') && PURPOSES.find(x=>x.id===p.get('p'))) activePurpose=p.get('p'); else activePurpose=null;
+  if(p.get('e') && ERAS[p.get('e')]) era=p.get('e');
+  if(p.get('mw')) itMW=Math.max(5,Math.min(300,+p.get('mw')||50));
+  if(p.get('c') && RANKED_SET.find(c=>c.n===p.get('c'))) selected=p.get('c');
+  invalidateRank();
+}
+
+/* ============ 5. 실시간 기온 ============ */
+DATA.forEach(c=>c.tempBase=c.temp);
+
+// URL 길이 제한을 피하려고 좌표를 나눠서 요청한다 (한 번에 40개씩)
+const LIVE_BATCH=40;
+async function fetchBatch(items){
+  const lat=items.map(c=>c.lat.toFixed(3)).join(',');
+  const lng=items.map(c=>c.lng.toFixed(3)).join(',');
+  const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m`);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  let d=await res.json();
+  if(!Array.isArray(d)) d=[d];
+  d.forEach((x,i)=>{
+    const t=x&&x.current&&x.current.temperature_2m;
+    if(typeof t==='number'&&items[i]){ items[i].liveC=t; items[i].tempLive=tempScore(t); }
+  });
+}
+async function fetchLive(){
+  liveState={s:'load',at:liveState.at,msg:''}; renderLive();
+  try{
+    const batches=[];
+    for(let i=0;i<DATA.length;i+=LIVE_BATCH) batches.push(DATA.slice(i,i+LIVE_BATCH));
+    const results=await Promise.allSettled(batches.map(fetchBatch));
+    const ok=results.filter(r=>r.status==='fulfilled').length;
+    if(ok===0) throw new Error('모든 요청 실패');
+    liveState={s:'ok',at:new Date(),
+      msg: ok<batches.length ? `일부 지역(${batches.length-ok}/${batches.length} 구간)은 갱신하지 못했습니다.` : ''};
+    if(liveOn) applyTemp();
+  }catch(e){
+    liveState={s:'err',at:liveState.at,msg:'실시간 데이터를 불러오지 못했습니다.'};
+  }
+  renderLive();
+  refresh('data');
+}
+function applyTemp(){ DATA.forEach(c=>c.temp = (liveOn&&typeof c.tempLive==='number') ? c.tempLive : c.tempBase); }
+function setLive(on){
+  liveOn=on; if(liveTimer){clearInterval(liveTimer);liveTimer=null;}
+  if(on && era!=='now'){
+    // 현재 시각의 기온에 미래 상승폭을 덧씌우면 의미가 없으므로 시나리오를 현재로 되돌린다
+    era='now'; invalidateRank();
+    if(typeof renderEras==='function') renderEras();
+    const note=document.getElementById('eraNote');
+    if(note) note.innerHTML='실시간 기온을 켜면 기후 시나리오는 <b>현재</b>로 고정됩니다. '+
+      '미래 시나리오를 보려면 실시간 기온을 꺼주세요.';
+    if(filterMode!=='off') paintGrid();
+  }
+  if(on){ fetchLive(); liveTimer=setInterval(fetchLive,600000); }
+  else{ applyTemp(); renderLive(); refresh('data'); }
+}
+function renderLive(){
+  const el=document.getElementById('liveBar');
+  const tm=liveState.at?liveState.at.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'—';
+  let dot='off',txt='기준 데이터(연평균 기반)로 계산 중';
+  if(liveOn&&liveState.s==='ok'){dot='on';txt=`실시간 기온 반영 중 · ${tm} 갱신 · 10분마다 자동`;}
+  if(liveOn&&liveState.s==='load'){dot='load';txt='실시간 기온 불러오는 중…';}
+  if(liveOn&&liveState.s==='err'){dot='err';txt=liveState.msg;}
+  el.innerHTML=`<div class="live-left"><span class="live-dot ${dot}"></span><span class="live-text">${txt}</span></div>
+    <div class="live-right"><label class="switch"><input type="checkbox" id="lt" ${liveOn?'checked':''}><span>실시간 기온 반영</span></label>
+    <button class="mini-btn" id="lr" ${liveOn?'':'disabled'}>지금 갱신</button></div>`;
+  document.getElementById('lt').onchange=e=>setLive(e.target.checked);
+  document.getElementById('lr').onclick=()=>{ if(liveOn) fetchLive(); };
+}
+
+/* ============ 5-B. 데이터 출처 · 항목 해설 · AI 설명 ============ */
+const SOURCES = {
+  temp :{n:'Open-Meteo / NOAA 재분석',u:'https://open-meteo.com/',d:'연평균 기온 °C',   unit:'°C',  key:'tc',   fmt:v=>v.toFixed(1)+'°C'},
+  power:{n:'GlobalPetrolPrices · IEA',u:'https://www.globalpetrolprices.com/electricity_prices/',d:'산업용 전기요금 2024', unit:'USD/kWh', key:'elec', fmt:v=>'$'+v.toFixed(3)+'/kWh'},
+  renew:{n:'Ember Global Electricity Review',u:'https://ember-energy.org/',d:'재생에너지 발전 비중 2024', unit:'%', key:'re', fmt:v=>v+'%'},
+  grid :{n:'각국 규제기관 SAIDI 공표값',u:'https://www.iea.org/',d:'연간 정전 시간 2023–24', unit:'시간/년', key:'out', fmt:v=>v+'시간/년'},
+  water:{n:'WRI Aqueduct 물 스트레스',u:'https://www.wri.org/aqueduct',d:'유역 물 스트레스 2023 (배정값)'},
+  net  :{n:'Ookla Speedtest Global Index',u:'https://www.speedtest.net/global-index',d:'고정 광대역 중앙값 2025', unit:'Mbps', key:'mbps', fmt:v=>v+' Mbps'},
+  risk :{n:'WorldRiskIndex 2024',u:'https://weltrisikobericht.de/',d:'재해 위험 점수 (낮을수록 안전)', unit:'점', key:'wri', fmt:v=>v+'점'},
+  land :{n:'각국 산업용지 시세 보고서',u:'https://data.worldbank.org/',d:'산업용지 시세 근사', unit:'USD/m²', key:'land', fmt:v=>'$'+v+'/m²'},
+};
+// 원자료 값을 보기 좋게 반환 (없으면 null)
+function rawText(c,k){
+  const src=SOURCES[k]; if(!src||!src.key) return null;
+  if(src.key==='tc') return (typeof c.tc==='number') ? src.fmt(c.tc) : null;
+  return (c.raw && typeof c.raw[src.key]==='number') ? src.fmt(c.raw[src.key]) : null;
+}
+
+// "왜 이 점수인가" 한 줄 해설
+// 항목마다 값의 분포가 달라 고정 임계값(80/55)은 부적절하다.
+// 각 항목의 상·하위 3분위를 기준으로 판정한다.
+let _cuts=null;
+function cuts(){
+  if(_cuts) return _cuts;
+  _cuts={};
+  FKEYS.forEach(k=>{
+    const v=RANKED_SET.map(c=>c[k]).sort((a,b)=>a-b);
+    const q=f=>v[Math.min(v.length-1, Math.floor(f*(v.length-1)))];
+    _cuts[k]={hi:q(0.67), lo:q(0.33)};
+  });
+  return _cuts;
+}
+function reasonOf(k,v){
+  const c=cuts()[k] || {hi:80, lo:55};
+  const hi=v>=c.hi, mid=v>=c.lo;
+  switch(k){
+    case 'temp' : return hi?'연평균 기온이 낮아 외기 냉방만으로 서버를 식힐 수 있는 날이 많습니다'
+                     :mid?'냉방기 가동이 필요한 시기가 절반가량 됩니다'
+                         :'고온다습해 연중 기계식 냉방이 필요하고 냉각 전력이 크게 듭니다';
+    case 'power': return hi?'전력 단가가 낮아 운영비의 가장 큰 항목을 아낄 수 있습니다'
+                     :mid?'전력 단가가 평균 수준입니다'
+                         :'전력 단가가 높아 장기 운영비 부담이 큽니다';
+    case 'renew': return hi?'수력·풍력 비중이 높아 탄소중립 목표를 맞추기 쉽습니다'
+                     :mid?'재생에너지 비중이 중간 수준이라 부족분은 전력구매계약(PPA)으로 메워야 합니다'
+                         :'화석연료 비중이 높아 RE100 대응이 어렵습니다';
+    case 'grid' : return hi?'정전이 드물고 예비 전력이 충분해 무중단 운영에 유리합니다'
+                     :mid?'전력망은 안정적이나 대규모 신규 수요 수용에는 협의가 필요합니다'
+                         :'정전이 잦아 자체 발전 설비 등 추가 투자가 필요합니다';
+    case 'water': return hi?'냉각수를 안정적으로 확보할 수 있고 물 분쟁 위험이 낮습니다'
+                     :mid?'냉각수 확보는 가능하나 갈수기 사용 제한 가능성이 있습니다'
+                         :'물 부족 지역이라 수냉식 냉각이 어렵고 지역 갈등 위험이 있습니다';
+    case 'net'  : return hi?'해저케이블과 백본이 밀집해 지연시간이 짧습니다'
+                     :mid?'국제 회선은 확보되나 주요 허브를 경유해야 합니다'
+                         :'국제 통신 인프라가 부족해 지연시간이 길어집니다';
+    case 'risk' : return hi?'지진·태풍 등 자연재해 발생 빈도가 낮습니다'
+                     :mid?'일부 자연재해 위험이 있어 내진·침수 대비가 필요합니다'
+                         :'지진 또는 태풍 위험이 커 설비 보호 비용이 크게 듭니다';
+    case 'land' : return hi?'토지 가격이 낮아 대규모 캠퍼스를 조성하기 좋습니다'
+                     :mid?'토지 비용이 평균 수준입니다'
+                         :'토지 가격이 높아 부지 확보 비용이 큰 부담이 됩니다';
+  }
+  return '';
+}
+
+// 해당 국가에 실제로 데이터센터가 있는지 조회
+function sitesInCountry(name){ return SITES.filter(s=>s.ct===name); }
+
+// AI 자연어 추천 설명
+function aiNarrative(c){
+  const list=ranked(), rank=list.findIndex(x=>x.n===c.n)+1;
+  const sorted=[...FACTORS].sort((a,b)=>c[b.key]-c[a.key]);
+  const strong=sorted.filter(f=>c[f.key]>=75).slice(0,4);
+  const weak=sorted.filter(f=>c[f.key]<55).slice(-3).reverse();
+  const purpose=PURPOSES.find(p=>p.id===activePurpose);
+  const pName=purpose?purpose.name:'사용자 지정 가중치';
+  const real=sitesInCountry(c.n);
+  const eraTxt = era==='now' ? '' :
+    ` ${ERAS[era].label}년 기후 시나리오를 적용한 결과입니다.`;
+
+  let head;
+  if(rank===1) head=`<b>${c.n}</b>를 1순위로 추천합니다.`;
+  else if(rank<=5) head=`<b>${c.n}</b>는 상위권(${rank}위) 후보입니다.`;
+  else if(c.score>=65) head=`<b>${c.n}</b>는 조건부로 검토할 만합니다 (${rank}위).`;
+  else head=`<b>${c.n}</b>는 현재 기준에서는 권장하기 어렵습니다 (${rank}위).`;
+
+  const bullets = strong.length
+    ? strong.map(f=>`<li><span class="mk">✓</span>${f.label} ${c[f.key]}점 — ${reasonOf(f.key,c[f.key])}</li>`).join('')
+    : `<li><span class="mk">✓</span>뚜렷한 강점 항목이 없습니다</li>`;
+
+  let realTxt;
+  if(real.length){
+    const cos=[...new Set(real.map(r=>r.co))];
+    realTxt=`<div class="ai-real">✔ 실제로 ${cos.join(', ')}가 이곳에 데이터센터를 운영 중입니다 (${real.length}개 지점).
+      모델의 판단이 기업들의 실제 선택과 일치합니다.</div>`;
+  }else if(c.score>=80){
+    realTxt=`<div class="ai-real warn">! 점수는 높지만 아직 주요 기업의 대형 데이터센터가 없습니다.
+      전력·통신은 좋아도 이용자와 멀어 지연시간이 길거나, 시장 규모가 작기 때문일 수 있습니다.</div>`;
+  }else realTxt='';
+
+  const concl = c.score>=80
+    ? `따라서 <b>${pName}</b> 기준으로 ${c.n}는 적합한 입지입니다.`
+    : c.score>=65
+    ? `<b>${pName}</b> 기준으로 무난하지만, 위 약점을 보완할 계획이 필요합니다.`
+    : `<b>${pName}</b> 기준으로는 다른 후보를 먼저 검토하는 편이 낫습니다.`;
+
+  return `<div class="ai-head">${head} 총점 <b>${c.score.toFixed(1)}점</b>입니다.${eraTxt}</div>
+    <div class="ai-sec"><div class="ai-sub">① 장점</div>
+      <ul class="flist good">${bullets}</ul></div>
+    <div class="ai-sec"><div class="ai-sub">② 단점</div>
+      ${weak.length ? `<ul class="flist bad">${
+        weak.map(f=>`<li><span class="mk">△</span>${f.label} ${c[f.key]}점 — ${reasonOf(f.key,c[f.key])}</li>`).join('')}</ul>`
+        : '<div class="ai-none">뚜렷한 약점 항목이 없습니다.</div>'}</div>
+    <div class="ai-sec"><div class="ai-sub">③ 실제 사례</div>
+      ${realTxt || '<div class="ai-none">참고할 실제 운영 사례가 수록되어 있지 않습니다.</div>'}</div>
+    <div class="ai-sec"><div class="ai-sub">④ 추천 여부</div>
+      <div class="ai-concl">${concl}</div></div>`;
+}
+
+/* ============ 5-C. 운영 시뮬레이터 (전력·냉각·탄소·비용) ============ */
+
+// 기후가 좋을수록 PUE(전력효율지표)가 1에 가까워진다
+function estPUE(tempScore){ return 1.10 + (1 - tempScore/100) * 0.45; }
+// 전력 탄소집약도는 실제 계통 값을 쓴다.
+// 재생에너지 비율만으로 추정하면 원자력 비중이 큰 나라(프랑스·스웨덴·한국)가 크게 왜곡된다.
+function estCarbonIntensity(c){
+  if(typeof c==='number') return Math.round(700 - c*6.2);
+  return (typeof c.ci==='number') ? c.ci : Math.round(700 - (c.renew||0)*6.2);
+}
+// 전력 점수가 높을수록 단가가 싸다 (USD/kWh)
+function estTariff(power){ return 0.28 - power/100*0.22; }
+
+// 실시간 기온은 '지금 이 순간' 값이라 연간 효율 추정에는 쓰지 않는다
+function annualTempScore(c){
+  const base = (typeof c.tempBase==='number') ? c.tempBase : c.temp;
+  return mval({lat:c.lat, temp:base, water:c.water, risk:c.risk}, 'temp');
+}
+// 냉각 방식별 PUE 보정과 물 사용량 계수
+const COOLING = {
+  air   :{name:'공랭식',      pue:+0.10, water:0.4, why:'설비가 단순하지만 더운 지역에서 전력을 많이 씁니다'},
+  water :{name:'수냉식',      pue:0,     water:1.0, why:'냉각 효율이 좋지만 물을 많이 소비합니다'},
+  free  :{name:'외기 냉방',   pue:-0.06, water:0.15,why:'서늘한 지역에서만 가능하며 전력·물을 모두 아낍니다'},
+  liquid:{name:'액침 냉각',   pue:-0.12, water:0.1, why:'GPU 고밀도 랙에 적합하나 초기 투자비가 큽니다'},
+};
+
+// 외기 냉방은 연평균 기온이 낮은 지역에서만 연중 가능하다.
+// 16°C 이상이면 이점이 사라지고, 그 사이는 부분적으로만 적용된다.
+function freeCoolFeasibility(c){
+  const tc = (typeof c.tc==='number') ? c.tc : 12;
+  return Math.max(0, Math.min(1, (16 - tc) / 12));
+}
+function simulate(c){
+  const cool=COOLING[coolingMode]||COOLING.water;
+  const feas = coolingMode==='free' ? freeCoolFeasibility(c) : 1;
+  const pueAdj = coolingMode==='free'
+    ? cool.pue*feas + COOLING.air.pue*(1-feas)     // 불가능한 만큼 공랭식으로 대체된다
+    : cool.pue;
+  const waterAdj = coolingMode==='free'
+    ? cool.water*feas + COOLING.air.water*(1-feas)
+    : cool.water;
+  const pue = Math.max(1.03, estPUE(annualTempScore(c)) + pueAdj);
+  const annualGWh = itMW * pue * 8760 / 1000;          // 연간 총 전력량
+  const coolShare = (pue - 1) / pue;                    // 냉각 등 부대설비 비중
+  const ci = estCarbonIntensity(c);
+  // GWh × (g/kWh) = 톤  (1GWh = 1e6 kWh, 1e6 g = 1톤 이므로 계수가 상쇄된다)
+  const tonsCO2 = annualGWh * ci;                       // 연간 탄소배출 (톤)
+  const tariff = estTariff(c.power);
+  // GWh × ($/kWh) = 백만 달러  (1e6 kWh × $/kWh = 백만 달러 단위)
+  const costM = annualGWh * tariff;                     // 연간 전기요금 (백만 달러)
+  const waterKL = annualGWh * 1.8 * (1 - annualTempScore(c)/100) * waterAdj; // 연간 냉각수 (천 톤)
+  // 장비 규모 추정: GPU 서버 1대(8GPU) 약 10kW, 일반 서버 약 0.5kW
+  const gpuCount = Math.round(itMW*1000*gpuShare/100/1.25);      // GPU 1장당 약 1.25kW
+  const serverCount = Math.round(itMW*1000*(100-gpuShare)/100/0.5);
+  // GPU 고밀도 랙은 배전·냉각 설비가 더 필요하고, 액침 냉각은 초기 투자가 크다
+  const capexPerMW = 7.5 + (gpuShare/100)*6.5 + (coolingMode==='liquid'?2.2:0);
+  const capexM = itMW * capexPerMW;
+  return {pue, annualGWh, coolShare, ci, tonsCO2, tariff, costM, waterKL,
+          gpuCount, serverCount, capexM, capexPerMW, cool, feas};
+}
+
+let simBuilt=false;
+function buildSimulator(){
+  const box=$('simBox'); if(!box) return;
+  box.innerHTML=`
+    <div class="sim-input">
+      <label>IT 부하 규모
+        <input type="range" id="mwRange" min="5" max="500" step="5" value="${itMW}"
+               aria-label="IT 부하 규모(메가와트)">
+        <b id="mwLabel">${itMW}MW</b>
+      </label>
+      <label>GPU 랙 비중
+        <input type="range" id="gpuRange" min="0" max="100" step="5" value="${gpuShare}"
+               aria-label="GPU 랙 비중(퍼센트)">
+        <b id="gpuLabel">${gpuShare}%</b>
+      </label>
+      <div class="cool-row">냉각 방식
+        ${Object.entries(COOLING).map(([k,v])=>
+          `<button class="cool-btn ${k===coolingMode?'on':''}" data-c="${k}"
+            title="${v.why}">${v.name}</button>`).join('')}
+      </div>
+      <div class="sim-hint" id="coolHint">${COOLING[coolingMode].why}</div>
+    </div>
+    <div class="sim-grid">
+      ${[['장비 규모','gear'],['PUE (전력효율)','pue'],['연간 전력 소비','gwh'],
+         ['연간 전기요금','cost'],['연간 냉각비 몫','coolcost'],['연간 탄소배출','co2'],
+         ['연간 냉각수','water'],['초기 건설비(추정)','capex'],['1위 국가와 비교','cmp']]
+        .map(([k,id])=>`<div class="sim-card"><div class="sk">${k}</div>
+         <div class="sv" id="sv-${id}">—</div><div class="sn" id="sn-${id}"></div></div>`).join('')}
+    </div>
+    <div class="sim-note">PUE는 기후 점수와 냉각 방식으로, 탄소집약도는 실제 계통 값으로,
+      전력 단가는 전력 비용 점수로 환산한 <b>추정값</b>입니다.
+      장비 수량은 GPU 1장 약 1.25kW, 일반 서버 약 0.5kW로 가정했습니다.</div>`;
+
+  $('mwRange').addEventListener('input',e=>{
+    itMW=+e.target.value; $('mwLabel').textContent=itMW+'MW'; updateSimulator(); });
+  $('gpuRange').addEventListener('input',e=>{
+    gpuShare=+e.target.value; $('gpuLabel').textContent=gpuShare+'%'; updateSimulator(); });
+  box.querySelectorAll('.cool-btn').forEach(b=>b.onclick=()=>{
+    coolingMode=b.dataset.c;
+    box.querySelectorAll('.cool-btn').forEach(x=>x.classList.toggle('on',x===b));
+    $('coolHint').textContent=COOLING[coolingMode].why;
+    updateSimulator();
+  });
+  simBuilt=true;
+}
+function updateSimulator(){
+  if(!simBuilt) buildSimulator();
+  const c=ranked().find(x=>x.n===selected); if(!c || !$('sv-pue')) return;
+  const r=simulate(c), best=ranked()[0], rb=simulate(best);
+  const set=(id,val,note,col)=>{
+    const v=$('sv-'+id); if(!v) return;
+    v.innerHTML=val; v.style.color=col||'';
+    const n=$('sn-'+id); if(n && note!==undefined) n.textContent=note;
+  };
+  set('gear', `${r.gpuCount.toLocaleString()}<span>GPU</span>`,
+      `일반 서버 약 ${r.serverCount.toLocaleString()}대`);
+  set('pue', r.pue.toFixed(2),
+      coolingMode==='free'
+        ? (r.feas>=0.85 ? '외기 냉방 연중 가능'
+          : r.feas<=0.05 ? '이 지역은 외기 냉방이 사실상 불가능'
+          : `외기 냉방 가능 비율 약 ${Math.round(r.feas*100)}%`)
+        : `${r.cool.name} 기준`,
+      r.pue<=1.2?'var(--good)':r.pue<=1.35?'var(--mid)':'var(--bad)');
+  set('gwh', `${r.annualGWh.toFixed(0)}<span>GWh</span>`, `이 중 ${(r.coolShare*100).toFixed(0)}%가 냉각·부대설비`);
+  set('cost', `$${r.costM.toFixed(0)}<span>M</span>`, `단가 $${r.tariff.toFixed(3)}/kWh 가정`);
+  set('coolcost', `$${(r.costM*r.coolShare).toFixed(0)}<span>M</span>`, '전기요금 중 냉각이 차지하는 몫');
+  set('co2', `${Math.round(r.tonsCO2).toLocaleString()}<span>tCO₂</span>`, `탄소집약도 ${r.ci}g/kWh`,
+      r.tonsCO2<100000?'var(--good)':r.tonsCO2<400000?'var(--mid)':'var(--bad)');
+  set('water', `${Math.round(r.waterKL).toLocaleString()}<span>천 톤</span>`,
+      coolingMode==='free' && r.feas<0.85 ? '부족분은 공랭식으로 대체' : `${r.cool.name} 기준`);
+  set('capex', `$${r.capexM.toFixed(0)}<span>M</span>`,
+      `MW당 약 $${r.capexPerMW.toFixed(1)}M (GPU ${gpuShare}%${coolingMode==='liquid'?' · 액침':''})`);
+  const dCO2=r.tonsCO2-rb.tonsCO2, dCost=r.costM-rb.costM;
+  set('cmp', `${dCO2>=0?'+':''}${Math.round(dCO2).toLocaleString()} tCO₂`,
+      `${best.n} 대비 전기요금 ${dCost>=0?'+':''}$${dCost.toFixed(0)}M`,
+      dCO2>0?'var(--bad)':'var(--good)');
+  const el=$('sv-cmp'); if(el) el.style.fontSize='15px';
+}
+const renderSimulator = updateSimulator;
+
+/* ---- 점수 계산 수식 공개 ---- */
+function renderFormula(){
+  const box=$('formulaBox'); if(!box) return;
+  const c=ranked().find(x=>x.n===selected); if(!c) return;
+  const w=effectiveWeights(), tw=effTotal()||1;
+  const terms=FACTORS.map(f=>({
+    label:f.label, v:c[f.key],
+    pct:(w[f.key]/tw*100),
+    part:c[f.key]*w[f.key]/tw,
+  }));
+  const total=terms.reduce((a,t)=>a+t.part,0);
+  box.innerHTML=`
+    <div class="fm-line">최종점수 = Σ (항목 점수 × 유효 가중치) ÷ 가중치 합계</div>
+    <div class="fm-calc">${terms.map(t=>
+      `<div class="fm-term"><span class="fm-nm">${t.label}</span>
+       <span class="fm-num">${t.v}</span><span class="fm-op">×</span>
+       <span class="fm-w">${t.pct.toFixed(1)}%</span><span class="fm-op">=</span>
+       <span class="fm-part">${t.part.toFixed(2)}</span></div>`).join('')}
+      <div class="fm-term fm-sum"><span class="fm-nm">합계</span>
+        <span class="fm-part">${total.toFixed(2)}</span></div>
+    </div>
+    <div class="fm-note">${decorrelate
+      ? '지표 중복 보정이 켜져 있어, 설정한 가중치에서 상관이 높은 항목의 몫을 줄인 <b>유효 가중치</b>를 사용합니다.'
+      : '설정한 가중치를 그대로 사용합니다. 상관이 높은 항목을 보정하려면 위의 <b>지표 중복 보정</b>을 켜세요.'}
+      ${era!=='now'?`<br>${ERAS[era].label} 시나리오가 적용되어 기온·수자원·재해 항목이 조정된 값입니다.`:''}</div>`;
+}
+
+/* ============ 5-D. 점수 계산 과정 시각화 ============ */
+function renderBreakdown(){
+  const box=$('breakBox'); if(!box) return;
+  renderFormula();
+  const c=ranked().find(x=>x.n===selected); if(!c) return;
+  const tw=totalWeight()||1;
+  const parts=FACTORS.map((f,i)=>({
+    label:f.label, w:weights[f.key], v:c[f.key],
+    contrib: c[f.key]*weights[f.key]/tw,
+    col: SERIES_COLORS[i%SERIES_COLORS.length],
+  })).sort((a,b)=>b.contrib-a.contrib);
+  const total=parts.reduce((a,x)=>a+x.contrib,0);
+  box.innerHTML=`
+    <div class="bd-bar">${parts.map(p=>
+      `<i style="width:${p.contrib/total*100}%;background:${p.col}" title="${p.label} ${p.contrib.toFixed(1)}점"></i>`).join('')}</div>
+    <div class="bd-list">${parts.map(p=>`
+      <div class="bd-row">
+        <span class="bd-dot" style="background:${p.col}"></span>
+        <span class="bd-nm">${p.label}</span>
+        <span class="bd-calc">${p.v}점 × ${(p.w/tw*100).toFixed(0)}%</span>
+        <span class="bd-val">${p.contrib.toFixed(1)}</span>
+      </div>`).join('')}
+      <div class="bd-row bd-total">
+        <span class="bd-dot" style="background:transparent"></span>
+        <span class="bd-nm">합계</span><span class="bd-calc"></span>
+        <span class="bd-val">${total.toFixed(1)}</span>
+      </div>
+    </div>`;
+}
+
+/* ============ 5-E. 실제 공개 데이터 연동 ============
+   World Bank Open Data API 는 인증 키가 필요 없고 CORS 도 열려 있어 브라우저에서 바로 호출된다.
+   IEA·Ember·Ookla 는 무료 공개 API 가 없어 현재는 추정값을 유지한다. */
+
+const WB_INDICATORS = [
+  { key:'renew', code:'EG.ELC.RNEW.ZS', alt:'EG.FEC.RNEW.ZS',
+    label:'재생에너지', unit:'%', org:'World Bank',
+    desc:'전체 발전량 중 재생에너지 비율',
+    // 비율이 곧 점수 (0~100)
+    toScore: v => Math.round(Math.max(0, Math.min(100, v))) },
+
+  { key:'grid', code:'EG.ELC.LOSS.ZS',
+    label:'전력망 안정성', unit:'% 손실', org:'World Bank',
+    desc:'송배전 손실률 — 낮을수록 계통이 촘촘하고 안정적',
+    // 손실 4% → 100점, 20% 이상 → 낮은 점수
+    toScore: v => Math.round(Math.max(5, Math.min(100, 100 - (v - 4) * 5.5))) },
+
+  { key:'net', code:'IT.NET.BBND.P2',
+    label:'인터넷 인프라', unit:'명/100명', org:'World Bank',
+    desc:'인구 100명당 유선 초고속 인터넷 가입 수',
+    // 상위국이 약 45 수준
+    toScore: v => Math.round(Math.max(5, Math.min(100, v / 45 * 100))) },
+
+  { key:'land', code:'NY.GDP.PCAP.CD',
+    label:'토지 비용', unit:'USD', org:'World Bank',
+    desc:'1인당 GDP — 소득이 높을수록 토지·건설비가 비싸다는 대리 지표',
+    toScore: v => Math.round(Math.max(5, Math.min(100, 100 - (v / 70000) * 88))) },
+];
+
+// 연동 상태: key → {status, year, n, note}
+const dataStatus = {
+  temp :{status:'est',   src:'문헌 근사치', note:'대표 지점 연평균 기온(°C)을 코드에 입력한 값 — 아래 버튼으로 실측 교체 가능'},
+  power:{status:'est',   src:'IEA·GlobalPetrolPrices', note:'무료 API 없음 — 공개 통계를 참고한 추정값'},
+  renew:{status:'est',   src:'World Bank', note:'아직 불러오지 않음'},
+  grid :{status:'est',   src:'World Bank', note:'아직 불러오지 않음'},
+  water:{status:'est',   src:'WRI Aqueduct', note:'무료 API 없음 — 물 스트레스 등급 기반 추정값'},
+  net  :{status:'est',   src:'World Bank', note:'아직 불러오지 않음'},
+  risk :{status:'est',   src:'WorldRiskIndex', note:'무료 API 없음 — 보고서 수치 기반 추정값'},
+  land :{status:'est',   src:'World Bank', note:'아직 불러오지 않음'},
+};
+
+async function fetchWorldBank(code){
+  const url=`https://api.worldbank.org/v2/country/all/indicator/${code}`
+    +`?format=json&per_page=400&mrnev=1`;
+  const res=await fetch(url);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const json=await res.json();
+  const rows=Array.isArray(json)&&json[1] ? json[1] : [];
+  const out={};
+  rows.forEach(r=>{
+    if(r && r.countryiso3code && r.value!==null && r.country){
+      const iso2=(r.country.id||'').toUpperCase();
+      if(iso2) out[iso2]={ value:+r.value, year:r.date };
+    }
+  });
+  return out;
+}
+
+// 최근 1년 관측 기록에서 국가별 연평균 기온을 실제로 받아온다
+async function fetchAnnualTemps(){
+  const end=new Date(Date.now()-6*864e5), start=new Date(end-364*864e5);
+  const fmt=d=>d.toISOString().slice(0,10);
+  const targets=RANKED_SET.filter(c=>typeof c.lat==='number');
+  const BATCH=12;
+  let applied=0;
+
+  for(let i=0;i<targets.length;i+=BATCH){
+    const part=targets.slice(i,i+BATCH);
+    const lat=part.map(c=>c.lat.toFixed(3)).join(',');
+    const lng=part.map(c=>c.lng.toFixed(3)).join(',');
+    const url=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}`
+      +`&start_date=${fmt(start)}&end_date=${fmt(end)}&daily=temperature_2m_mean&timezone=UTC`;
+    const res=await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    let d=await res.json();
+    if(!Array.isArray(d)) d=[d];
+    d.forEach((row,k)=>{
+      const vals=row && row.daily && row.daily.temperature_2m_mean;
+      if(!Array.isArray(vals)) return;
+      const ok=vals.filter(v=>typeof v==='number');
+      if(ok.length<200) return;                      // 결측이 많으면 건너뛴다
+      const mean=ok.reduce((a,b)=>a+b,0)/ok.length;
+      const c=part[k];
+      if(c){ c.tc=+mean.toFixed(1); c.temp=tempScore(c.tc); applied++; }
+    });
+  }
+
+  // 내륙 보조 기준점은 부모 국가의 새 기온에 위도 보정을 다시 적용한다
+  DATA.filter(c=>c._parent).forEach(c=>{
+    const src=RANKED_SET.find(x=>x.n===c._parent);
+    if(!src) return;
+    c.tc = src.tc + (estTemp(c.lat) - estTemp(src.lat));
+    c.temp = tempScore(c.tc);
+  });
+  // 기준 기온이 바뀌었으므로 실시간 모드의 원본 값도 갱신한다
+  DATA.forEach(c=>{ c.tempBase = c.temp; });
+  return applied;
+}
+
+let syncing=false;
+async function syncRealData(){
+  if(syncing) return;
+  syncing=true;
+  renderDataPanel('loading');
+
+  // (1) 연평균 기온 실측
+  try{
+    const n=await fetchAnnualTemps();
+    dataStatus.temp = n>0
+      ? {status:'real', src:'Open-Meteo 아카이브', year:'최근 12개월',
+         note:`대표 지점 연평균 기온 실측 (${n}개국 연동)`}
+      : {status:'fail', src:'Open-Meteo', note:'관측 자료를 받지 못했습니다'};
+  }catch(e){
+    dataStatus.temp = {status:'fail', src:'Open-Meteo',
+      note:'네트워크가 차단되었거나 응답이 없습니다 — 문헌 근사치를 유지합니다'};
+  }
+
+  // (2) World Bank 지표
+  for(const ind of WB_INDICATORS){
+    try{
+      let map = await fetchWorldBank(ind.code);
+      if(Object.keys(map).length < 10 && ind.alt) map = await fetchWorldBank(ind.alt);
+
+      let applied=0, years=[];
+      RANKED_SET.forEach(c=>{
+        const row = c.iso && map[c.iso];
+        if(!row) return;
+        c[ind.key] = ind.toScore(row.value);
+        c['_raw_'+ind.key] = row.value;
+        applied++; years.push(+row.year);
+      });
+      dataStatus[ind.key] = applied>0
+        ? { status:'real', src:ind.org, n:applied,
+            year: years.length ? `${Math.min(...years)}–${Math.max(...years)}` : '',
+            note:`${ind.desc} (${applied}개국 연동)` }
+        : { status:'fail', src:ind.org, note:'응답에 해당 국가 자료가 없습니다' };
+    }catch(e){
+      dataStatus[ind.key] = { status:'fail', src:ind.org,
+        note:'네트워크가 차단되었거나 응답이 없습니다' };
+    }
+  }
+
+  // 보조 기준점(rank:0)은 같은 이름의 국가 값을 물려받는다
+  DATA.filter(c=>!c.rank).forEach(c=>{
+    const src=RANKED_SET.find(x=>x.n===c.n);
+    if(src) FKEYS.forEach(k=>{ if(k!=='temp') c[k]=src[k]; });
+  });
+
+  syncing=false;
+  SITES.forEach(x=>{ delete x._ref; });   // 지점별 기준점 캐시 무효화
+  refresh('data');
+}
+
+function renderDataPanel(state){
+  const box=$('dataPanel'); if(!box) return;
+  const badge=st=>st==='real'?'<span class="ds real">실측 연동</span>'
+    :st==='fail'?'<span class="ds fail">연동 실패</span>'
+    :'<span class="ds est">추정값</span>';
+  const realCount=FKEYS.filter(k=>dataStatus[k].status==='real').length;
+  box.innerHTML=`
+    <div class="ds-head">
+      <div><b>${realCount} / ${FKEYS.length}</b> 항목이 실제 공개 데이터입니다</div>
+      <button class="mini-btn ${state==='loading'?'':'primary'}" id="syncBtn"
+        ${state==='loading'?'disabled':''}>
+        ${state==='loading'?'불러오는 중…':'공개 데이터 불러오기'}</button>
+    </div>
+    <div class="ds-list">
+      ${FKEYS.map(k=>{
+        const d=dataStatus[k];
+        return `<div class="ds-row">
+          <span class="ds-nm">${FLABEL[k]}</span>
+          ${badge(d.status)}
+          <span class="ds-src">${esc(d.src)}${d.year?` · ${d.year}`:''}</span>
+          <span class="ds-note">${esc(d.note||'')}</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="ds-foot">World Bank Open Data 는 인증 키 없이 호출할 수 있어 브라우저에서 바로 연동됩니다.
+      전력 단가(IEA)·물 스트레스(WRI)·재해 위험(WorldRiskIndex)은 무료 API 가 없어
+      공개 보고서를 참고한 추정값을 유지합니다. 불러온 값은 각 지표의 최신 연도 자료입니다.</div>`;
+  const btn=$('syncBtn');
+  if(btn && state!=='loading') btn.onclick=syncRealData;
+}
+
+/* ============ 6. 분석 화면 (증분 업데이트 구조) ============ */
+
+// 외부 데이터가 들어올 때를 대비한 HTML 이스케이프 (현재는 내부 상수만 사용)
+
+const elWeights=$('weights'), elImpact=$('impact'), elRankList=$('rankList'),
+      elDetail=$('detail'), elCmpTable=$('cmpTable'), elStTop=$('stTop');
+
+/* ---- 목적 칩 ---- */
+function renderChips(){
+  $('chips').innerHTML=PURPOSES.map(p=>
+    `<button class="chip ${p.id===activePurpose?'on':''}" data-p="${p.id}" aria-pressed="${p.id===activePurpose}">${p.name}</button>`).join('');
+  $('chips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    const before=ranked().map(c=>c.n);
+    activePurpose=b.dataset.p;
+    weights={...PURPOSES.find(p=>p.id===activePurpose).w};
+    invalidateRank();
+    lastShift=shift(before,ranked().map(c=>c.n));
+    renderChips(); syncWeights();
+    refresh('weights');
+  });
+}
+function shift(a,b){
+  const mv=b.map((n,i)=>({n,d:a.indexOf(n)-i})).filter(x=>x.d!==0).sort((x,y)=>y.d-x.d);
+  return mv.length?{up:mv[0],down:mv[mv.length-1]}:null;
+}
+
+/* ---- 가중치 슬라이더: DOM은 한 번만 만들고 이후엔 값만 갱신 ---- */
+let sliderEls={}, valueEls={}, dragBefore=null, recalcRaf=null;
+
+function buildWeights(){
+  elWeights.innerHTML=FACTORS.map(f=>`
+    <div class="w-row">
+      <label><span>${f.label}</span><b data-v="${f.key}">${weights[f.key]}%</b></label>
+      <input type="range" min="0" max="45" step="1" value="${weights[f.key]}" data-k="${f.key}"
+             aria-label="${f.label} 가중치" aria-valuemin="0" aria-valuemax="45"
+             aria-valuenow="${weights[f.key]}" aria-valuetext="${weights[f.key]}퍼센트">
+      <div class="w-hint">${f.up}</div>
+    </div>`).join('');
+
+  elWeights.querySelectorAll('input[type=range]').forEach(r=>{
+    const k=r.dataset.k;
+    sliderEls[k]=r;
+    valueEls[k]=elWeights.querySelector(`b[data-v="${k}"]`);
+
+    // 드래그 시작 시점의 순위를 기억해 둔다
+    const markStart=()=>{ if(dragBefore===null) dragBefore=ranked().map(c=>c.n); };
+    r.addEventListener('pointerdown',markStart);
+    r.addEventListener('keydown',markStart);
+
+    // 드래그 중: 숫자만 즉시 바꾸고, 무거운 계산은 다음 프레임으로 미룬다
+    r.addEventListener('input',()=>{
+      const v=+r.value;
+      if(weights[k]===v) return;
+      weights[k]=v;
+      valueEls[k].textContent=v+'%';
+      r.setAttribute('aria-valuenow',v); r.setAttribute('aria-valuetext',v+'퍼센트');
+      if(activePurpose!==null){ activePurpose=null; renderChips(); }
+      scheduleRecalc();
+    });
+
+    // 드래그를 놓았을 때만 지도 색상과 순위 변동 요약을 갱신한다
+    r.addEventListener('change',()=>{
+      if(dragBefore){ lastShift=shift(dragBefore,ranked().map(c=>c.n)); dragBefore=null; }
+      refresh('weights');
+    });
+  });
+}
+function syncWeights(){
+  FKEYS.forEach(k=>{
+    if(sliderEls[k]) sliderEls[k].value=weights[k];
+    if(valueEls[k]) valueEls[k].textContent=weights[k]+'%';
+  });
+}
+function scheduleRecalc(){
+  if(recalcRaf) return;
+  recalcRaf=requestAnimationFrame(()=>{ recalcRaf=null; refresh('drag'); });
+}
+function renderImpact(){
+  if(totalWeight()===0){
+    elImpact.innerHTML='<b style="color:var(--mid)">모든 가중치가 0입니다.</b> ' +
+      '최소 한 개 항목의 가중치를 올려야 점수가 계산됩니다. 목적 프리셋을 누르면 기본값으로 되돌아갑니다.';
+    return;
+  }
+  const top=FACTORS.reduce((a,f)=>weights[f.key]>weights[a.key]?f:a);
+  const share=(weights[top.key]/(totalWeight()||1)*100).toFixed(0);
+  let sh='';
+  if(lastShift) sh=` 방금 조정으로 <span class="up">${lastShift.up.n} ▲${lastShift.up.d}</span>,
+    <span class="down">${lastShift.down.n} ▼${Math.abs(lastShift.down.d)}</span> 순위가 움직였습니다.`;
+  elImpact.innerHTML=`현재 <b>${top.label}</b>이 총점의 <b>${share}%</b>를 차지해 가장 크게 작용합니다. ${top.up}${sh}
+    지도 탭의 <b>종합 적합도</b> 색상도 이 가중치를 따릅니다.`;
+}
+
+/* ---- 순위: 행을 재생성하지 않고 순서와 값만 갱신 ---- */
+const rankEls={};
+function buildRankList(){
+  elRankList.innerHTML='';
+  RANKED_SET.forEach(c=>{
+    const d=document.createElement('div');
+    d.className='rank-row'; d.dataset.n=c.n;
+    d.innerHTML=`<div class="pos"></div>
+      <div class="nm">${c.n}<em>${c.region}${c.dc?' · 운영 중':' · 신규 후보'}</em></div>
+      <div class="bar"><i></i></div><div class="sc"></div>`;
+    d._pos=d.querySelector('.pos'); d._bar=d.querySelector('.bar i'); d._sc=d.querySelector('.sc');
+    d.addEventListener('click',()=>{ selected=c.n; refresh('selection'); });
+    rankEls[c.n]=d; elRankList.appendChild(d);
+  });
+}
+function updateRankList(){
+  const list=ranked();
+  if(!selected||!rankEls[selected]) selected=list[0].n;
+  const frag=document.createDocumentFragment();
+  list.forEach((c,i)=>{
+    const el=rankEls[c.n], col=color(c.score);
+    el._pos.textContent=String(i+1).padStart(2,'0');
+    el._bar.style.width=c.score+'%';
+    el._bar.style.background=col;
+    el._sc.textContent=c.score.toFixed(1);
+    el._sc.style.color=col;
+    el.classList.toggle('sel',c.n===selected);
+    frag.appendChild(el);   // 기존 노드를 옮기는 것이라 재파싱이 없다
+  });
+  elRankList.appendChild(frag);
+  elStTop.textContent=list[0].n;
+}
+
+/* ---- 상세: 레이더는 선택이 바뀔 때만, 점수는 가중치마다 ---- */
+const SERIES_COLORS=['#4FBF87','#57C7E8','#E0A63F','#D2634A','#B18CE8'];
+function radar(items,size=240){
+  const cx=size/2,cy=size/2,R=size/2-36,n=FACTORS.length;
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/n;return [cx+Math.cos(a)*r,cy+Math.sin(a)*r];};
+  let g='';
+  [0.25,0.5,0.75,1].forEach(f=>{g+=`<polygon points="${FACTORS.map((_,i)=>pt(i,R*f).join(',')).join(' ')}" fill="none" stroke="rgba(133,178,224,0.18)"/>`;});
+  FACTORS.forEach((_,i)=>{const[x,y]=pt(i,R);g+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="rgba(133,178,224,0.18)"/>`;});
+  items.forEach((c,si)=>{
+    const col=SERIES_COLORS[si%SERIES_COLORS.length];
+    g+=`<polygon points="${FACTORS.map((f,i)=>pt(i,R*c[f.key]/100).join(',')).join(' ')}"
+        fill="${col}33" stroke="${col}" stroke-width="2"/>`;
+    if(items.length===1) FACTORS.forEach((f,i)=>{const[x,y]=pt(i,R*c[f.key]/100);
+      g+=`<circle cx="${x}" cy="${y}" r="3" fill="${col}"/>`;});
+  });
+  FACTORS.forEach((f,i)=>{const[x,y]=pt(i,R+16);
+    const an=Math.abs(x-cx)<6?'middle':(x>cx?'start':'end');
+    g+=`<text x="${x}" y="${y+4}" fill="#8FAECC" font-size="9.5" text-anchor="${an}">${f.label}</text>`;});
+  return `<svg viewBox="0 0 ${size} ${size}" width="100%" style="max-width:${size}px">${g}</svg>`;
+}
+let dScore=null,dStars=null,dVerdict=null;
+function buildDetail(){
+  const c=ranked().find(x=>x.n===selected); if(!c) return;
+  const real=sitesInCountry(c.n);
+  elDetail.innerHTML=`
+    <div class="radar-wrap">${radar([c])}<div style="font-size:11.5px;color:var(--dim)">8개 항목 프로필</div></div>
+    <div><h3>${c.n}</h3>
+    <div style="color:var(--muted);font-size:12.5px;margin-top:3px">${c.region} · ${
+      real.length?`${real.length}개 지점 운영 중`:'신규 설치 후보지'}</div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:14px">
+      <div class="big" id="dScore"></div><div class="stars" id="dStars"></div></div>
+    <div class="mrows">${FACTORS.map(f=>`<div class="mrow2">
+      <div class="m2-top"><span class="lb">${f.label}</span>
+        <span class="vl">${c[f.key]}<span style="color:var(--dim);font-size:10px">점</span></span></div>
+      <div class="bar"><i style="width:${c[f.key]}%;background:${color(c[f.key])}"></i></div>
+      <div class="m2-why">${reasonOf(f.key,c[f.key])}</div>
+      <div class="m2-src">${(()=>{ const rv=rawText(c,f.key);
+        return rv ? `<b class="m2-raw">${rv}</b> · ${SOURCES[f.key].n}` : `${SOURCES[f.key].n} (배정값)`; })()}</div>
+      </div>`).join('')}</div>
+    <div class="verdict" id="dVerdict"></div></div>`;
+  renderBreakdown(); updateHeavyPanels();
+  dScore=$('dScore'); dStars=$('dStars'); dVerdict=$('dVerdict');
+  updateDetailScore();
+}
+function updateDetailScore(){
+  if(!dScore) return;
+  const c=ranked().find(x=>x.n===selected); if(!c) return;
+  const col=color(c.score);
+  dScore.innerHTML=`${c.score.toFixed(1)}<small>/100</small>`;
+  dScore.style.color=col;
+  dStars.textContent=stars(c.score);
+  dStars.style.color=col;
+  const s=[...FACTORS].sort((a,b)=>c[b.key]-c[a.key]);
+  const grade=c.score>=85?'매우 우수한 입지':c.score>=65?'양호한 입지':'보완이 필요한 입지';
+  dVerdict.innerHTML=`<b>${grade}</b>입니다. 강점은 ${s.slice(0,2).map(f=>f.label).join(', ')}이고,
+    ${s.slice(-2).reverse().map(f=>f.label).join(', ')}이 상대적으로 약합니다.`;
+  renderBreakdown();   // 8개 항목뿐이라 가볍다
+}
+
+// 문장 생성·지점 비교·시뮬레이터는 비용이 크므로 드래그가 끝났을 때만 실행한다
+function updateHeavyPanels(){
+  renderCompareTable(true);          // 레이더·순위 추세는 여기서만 다시 그린다
+  const c=ranked().find(x=>x.n===selected); if(!c) return;
+  const ai=$('aiBox'); if(ai) ai.innerHTML=aiNarrative(c);
+  renderSiteCompare(c);
+  updateSimulator();
+}
+
+/* ---- 실제 데이터센터 vs 모델 점수 비교 ---- */
+function renderSiteCompare(c){
+  const box=$('siteCmp'); if(!box) return;
+  const list=SITES.map(s=>({s,r:siteEval(s)})).sort((a,b)=>b.r.total-a.r.total);
+  const inCountry=list.filter(x=>x.s.ct===c.n);
+  const show=inCountry.length?inCountry.slice(0,6):list.slice(0,6);
+  box.innerHTML=`
+    <div class="sc-head">${inCountry.length
+      ? `${c.n}에서 운영 중인 데이터센터 ${inCountry.length}곳`
+      : `${c.n}에는 수록된 데이터센터가 없습니다. 전체 상위 지점과 비교합니다.`}</div>
+    ${show.map(x=>{
+      const d=x.r.total-c.score;
+      const es=FKEYS.map(k=>({k,v:x.r.m[k]})).sort((a,b)=>a.v-b.v)[0];
+      return `<div class="sc-row">
+        <div class="sc-nm">${esc(x.s.co)} <span>${esc(x.s.pl)}</span></div>
+        <div class="sc-sc" style="color:${color(x.r.total)}">${x.r.total.toFixed(1)}</div>
+        <div class="sc-df" style="color:${d>=0?'var(--good)':'var(--bad)'}">${d>=0?'+':''}${d.toFixed(1)}</div>
+        <div class="sc-note">${x.r.total>=85?'✔ 실제 기업도 선택한 우수 입지':`약점: ${FLABEL[es.k]} ${es.v}점`}</div>
+      </div>`;
+    }).join('')}`;
+}
+
+/* ---- 비교: 표는 국가가 바뀔 때만 다시 만든다 ---- */
+let picked=['핀란드','싱가포르','캐나다'];
+function buildCompare(){
+  const box=$('cmpPick');
+  if(box && !box.dataset.init){
+    box.innerHTML=RANKED_SET.map(c=>`<button class="pchip" data-n="${c.n}" aria-pressed="false">${esc(c.n)}</button>`).join('');
+    box.querySelectorAll('.pchip').forEach(b=>b.onclick=()=>{
+      const n=b.dataset.n, i=picked.indexOf(n);
+      if(i>=0){ if(picked.length>1) picked.splice(i,1); }
+      else { if(picked.length>=5){ alert('최대 5개국까지 비교할 수 있습니다.'); return; } picked.push(n); }
+      syncPick(); renderCompareTable();
+    });
+    box.dataset.init='1';
+  }
+  syncPick(); renderCompareTable();
+}
+function syncPick(){
+  document.querySelectorAll('.pchip').forEach(b=>{
+    const i=picked.indexOf(b.dataset.n);
+    b.classList.toggle('on', i>=0);
+    b.setAttribute('aria-pressed', i>=0);
+    b.style.borderColor = i>=0 ? SERIES_COLORS[i%SERIES_COLORS.length] : '';
+    b.style.color = i>=0 ? SERIES_COLORS[i%SERIES_COLORS.length] : '';
+  });
+}
+// 시나리오별 순위 변화 (기울기 그래프)
+function rankTrend(names){
+  const rows={};
+  ['now','e35','e50','e80','e100'].forEach(k=>{
+    const list=rankedFor(k);          // 전역 상태를 바꾸지 않는다
+    names.forEach(n=>{
+      const i=list.findIndex(c=>c.n===n);
+      (rows[n]=rows[n]||[]).push({rank:i+1, score:list[i]?list[i].score:0});
+    });
+  });
+  return rows;
+}
+function renderRankTrend(){
+  const box=$('trendBox'); if(!box) return;
+  const names=picked.slice(0,5);
+  const rows=rankTrend(names);
+  const keys=['now','e35','e50','e80','e100'];
+  const labels=keys.map(k=>ERAS[k].label);
+  const W=560,H=210,padL=54,padR=86,padT=18,padB=30;
+  const total=RANKED_SET.length;
+  const xs=keys.map((_,i)=>padL+i*(W-padL-padR)/(keys.length-1));
+  const y=r=>padT+(r-1)/(total-1)*(H-padT-padB);
+  let g=`<line x1="${padL}" y1="${padT}" x2="${W-padR}" y2="${padT}" stroke="rgba(133,178,224,0.18)"/>`;
+  labels.forEach((lb,i)=>{
+    g+=`<line x1="${xs[i]}" y1="${padT}" x2="${xs[i]}" y2="${H-padB}" stroke="rgba(133,178,224,0.14)"/>`;
+    g+=`<text x="${xs[i]}" y="${H-9}" fill="#8FAECC" font-size="10.5" text-anchor="middle">${lb}</text>`;
+  });
+  names.forEach((n,si)=>{
+    const col=SERIES_COLORS[si%SERIES_COLORS.length], pts=rows[n];
+    if(!pts) return;
+    g+=`<polyline points="${pts.map((p,i)=>`${xs[i]},${y(p.rank)}`).join(' ')}"
+        fill="none" stroke="${col}" stroke-width="2.2"/>`;
+    pts.forEach((p,i)=>{ g+=`<circle cx="${xs[i]}" cy="${y(p.rank)}" r="3.5" fill="${col}"/>`; });
+    g+=`<text x="${xs[0]-8}" y="${y(pts[0].rank)+4}" fill="${col}" font-size="10" text-anchor="end">${pts[0].rank}위</text>`;
+    g+=`<text x="${xs[xs.length-1]+8}" y="${y(pts[pts.length-1].rank)+4}" fill="${col}" font-size="10">${esc(n)} ${pts[pts.length-1].rank}위</text>`;
+  });
+  const changes=names.map(n=>{
+    const p=rows[n]; if(!p) return '';
+    const d=p[0].rank-p[p.length-1].rank;
+    return d===0 ? `${n} 변동 없음` : `${n} ${d>0?`${d}계단 상승`:`${-d}계단 하락`}`;
+  }).filter(Boolean).join(' · ');
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>
+    <div class="trend-note">2100년까지 ${changes}. 위로 갈수록 높은 순위입니다.
+      IPCC SSP2-4.5 경로에 위도별 온난화 증폭을 적용한 결과입니다.</div>`;
+}
+
+function renderCompareTable(full=true){
+  const list=ranked(), sel=picked.map(n=>list.find(c=>c.n===n)).filter(Boolean);
+  if(!sel.length) return;
+  const order=[...sel].sort((a,b)=>b.score-a.score);
+  if(full){
+    $('cmpRadar').innerHTML=radar(sel,280)+
+      `<div class="legend-series">${sel.map((c,i)=>
+        `<span><i style="background:${SERIES_COLORS[i%SERIES_COLORS.length]}"></i>${esc(c.n)}</span>`).join('')}</div>`;
+    renderRankTrend();
+  }
+  $('cmpTable').innerHTML=`<table>
+    <thead><tr><th>항목</th>${sel.map(c=>`<th>${c.n}</th>`).join('')}</tr></thead><tbody>
+    ${FACTORS.map(f=>{
+      const best=Math.max(...sel.map(c=>c[f.key]));
+      return `<tr><td>${f.label} <span class="wpct" data-k="${f.key}" style="color:var(--dim);font-size:11px">${weights[f.key]}%</span></td>
+        ${sel.map(c=>`<td class="${c[f.key]===best?'win':''}"><span class="n">${c[f.key]}</span></td>`).join('')}</tr>`;
+    }).join('')}
+    <tr><td>총점</td>${sel.map(c=>`<td class="${c.score===Math.max(...sel.map(x=>x.score))?'win':''}">
+      <span class="n">${c.score.toFixed(1)}</span></td>`).join('')}</tr>
+    <tr><td>순위</td>${sel.map(c=>`<td><span class="n">${order.findIndex(x=>x.n===c.n)+1} / ${sel.length}</span></td>`).join('')}</tr>
+    </tbody></table>`;
+}
+function updateCompareTotals(){ renderCompareTable(false); }  // 드래그 중: 표만
+function updateCompareWeights(){ renderCompareTable(true); }
+
+/* ---- 보고서 자동 생성 (Markdown) ---- */
+function buildReport(){
+  const c=ranked().find(x=>x.n===selected);
+  const list=ranked(), rank=list.findIndex(x=>x.n===c.n)+1;
+  const p=PURPOSES.find(x=>x.id===activePurpose);
+  const real=sitesInCountry(c.n);
+  const strong=[...FACTORS].sort((a,b)=>c[b.key]-c[a.key]).slice(0,3);
+  const weak=[...FACTORS].sort((a,b)=>c[a.key]-c[b.key]).slice(0,3);
+  const now=new Date().toISOString().slice(0,10);
+  const L=[];
+  L.push(`# 데이터센터 입지 분석 보고서 — ${c.n}`,'');
+  L.push(`- 작성일: ${now}`);
+  L.push(`- 평가 기준: ${p?p.name:'사용자 지정 가중치'}`);
+  L.push(`- 기후 시나리오: ${ERAS[era].label}${era!=='now'
+    ?` (전지구 평균기온 +${ERAS[era].dt}°C, 위도별 증폭 적용 — 북극권 ×1.9 / 중위도 ×1.1 / 열대 ×0.75)`:''}`);
+  L.push(`- 종합 점수: **${c.score.toFixed(1)} / 100** (전체 ${list.length}개국 중 ${rank}위)`,'');
+  L.push('## 0. 분석 방법','');
+  L.push(`- 기온 점수는 대표 지점의 **연평균 기온(°C) 실측값**을 정규화해 산출했습니다 (${c.tc}°C → ${c.temp}점).`);
+  L.push(`- 탄소배출 계산에는 재생에너지 비율이 아니라 **실제 계통 탄소집약도 ${c.ci} gCO₂/kWh**를 사용했습니다.`);
+  L.push(`- 지표 중복 보정: ${decorrelate?'적용 (상관 0.5 초과분만큼 유효 가중치 축소)':'미적용'}`);
+  L.push('');
+  methodologyTable().forEach(r=>L.push(r));
+  L.push('');
+  L.push('> 추정값 항목은 무료 공개 API가 없어 보고서·통계를 참고해 배정한 값입니다. 실측이 아닙니다.','');
+  L.push('## 1. 항목별 점수','');
+  L.push('| 항목 | 가중치 | 원자료 | 점수 | 평가 근거 | 출처 |');
+  L.push('|---|---:|---:|---:|---|---|');
+  FACTORS.forEach(f=>{
+    const rv=rawText(c,f.key) || '배정값';
+    L.push(`| ${f.label} | ${weights[f.key]}% | ${rv} | ${c[f.key]} | ${reasonOf(f.key,c[f.key])} | ${SOURCES[f.key].n} |`);
+  });
+  L.push('');
+  L.push('## 2. 추천 근거','');
+  strong.forEach(f=>L.push(`- **${f.label} ${c[f.key]}점** — ${reasonOf(f.key,c[f.key])}`));
+  L.push('');
+  L.push('## 3. 약점 및 보완 과제','');
+  weak.forEach(f=>L.push(`- **${f.label} ${c[f.key]}점** — ${reasonOf(f.key,c[f.key])}`));
+  L.push('');
+  L.push('## 4. 실제 운영 사례와의 비교','');
+  if(real.length){
+    L.push(`${c.n}에는 다음 데이터센터가 운영 중이며, 모델의 평가와 기업의 실제 선택이 일치합니다.`,'');
+    real.forEach(x=>L.push(`- ${x.co} ${x.pl} — 모델 점수 ${siteEval(x).total.toFixed(1)}점`));
+  }else{
+    L.push(`${c.n}에는 수록된 대형 데이터센터가 없습니다. 점수와 실제 투자 사이의 차이는`);
+    L.push('주요 이용자와의 거리(지연시간), 시장 규모, 규제 환경 등 모델에 포함되지 않은 요인 때문일 수 있습니다.');
+  }
+  L.push('');
+  L.push('## 5. 상위 10개국','');
+  L.push('| 순위 | 국가 | 총점 |'); L.push('|---:|---|---:|');
+  list.slice(0,10).forEach((x,i)=>L.push(`| ${i+1} | ${x.n} | ${x.score.toFixed(1)} |`));
+  L.push('');
+  L.push('## 6. 결론','');
+  L.push(c.score>=80
+    ? `${c.n}는 ${p?p.name:'설정한 기준'}에 부합하는 우수한 입지다. ${strong.map(f=>f.label).join(', ')} 항목에서 특히 강점을 보인다.`
+    : c.score>=65
+    ? `${c.n}는 조건부로 적합하다. ${weak.map(f=>f.label).join(', ')} 항목의 보완 대책이 전제되어야 한다.`
+    : `${c.n}는 현재 기준에서 권장하기 어렵다. 상위 후보인 ${list[0].n}(${list[0].score.toFixed(1)}점)와 비교 검토가 필요하다.`);
+  L.push('');
+  L.push('---','');
+  L.push('### 데이터 출처','');
+  FACTORS.forEach(f=>L.push(`- ${f.label}: ${SOURCES[f.key].n} (${SOURCES[f.key].d})`));
+  L.push('');
+  L.push('### 참고문헌','');
+  L.push('1. International Energy Agency (IEA), *Electricity Information*. https://www.iea.org/');
+  L.push('2. Ember, *Global Electricity Review*. https://ember-energy.org/');
+  L.push('3. World Resources Institute, *Aqueduct Water Risk Atlas*. https://www.wri.org/aqueduct');
+  L.push('4. Bündnis Entwicklung Hilft, *WorldRiskReport*. https://weltrisikobericht.de/');
+  L.push('5. Ookla, *Speedtest Global Index*. https://www.speedtest.net/global-index');
+  L.push('6. Open-Meteo, *Historical Weather API*. https://open-meteo.com/');
+  L.push('7. World Bank, *World Development Indicators*. https://data.worldbank.org/');
+  L.push('8. IPCC, *AR6 Synthesis Report* (SSP2-4.5 시나리오). https://www.ipcc.ch/report/ar6/syr/');
+  L.push('');
+  L.push(`> 생성 일시: ${new Date().toLocaleString('ko-KR')}`);
+  L.push(`> 사용한 가중치: ${FACTORS.map(f=>`${f.label} ${weights[f.key]}%`).join(', ')}`);
+  L.push('> 본 보고서의 수치는 학습용 모델 값이며, 실제 투자 판단에는 각 기관의 원자료 확인이 필요합니다.');
+  return L.join('\n');
+}
+// 두 보고서가 같은 문구를 쓰도록 방법론 표를 한 곳에서 만든다
+const CONVERSION_NOTE = {
+  temp :'연평균 기온(°C)을 −5°C=100점, 30°C=5점으로 선형 변환',
+  power:'공개 전력 단가 통계를 참고한 배정값',
+  renew:'발전량 중 재생에너지 비율(%)을 그대로 점수화',
+  grid :'송배전 손실률(%)이 낮을수록 고득점',
+  water:'물 스트레스 등급을 참고한 배정값',
+  net  :'인구 100명당 초고속 인터넷 가입 수를 45=100점 기준으로 환산',
+  risk :'WorldRiskIndex 등급을 참고한 배정값',
+  land :'1인당 GDP가 높을수록 토지비 부담이 크다고 보아 역방향 환산',
+};
+function methodologyTable(){
+  const L=['| 항목 | 상태 | 출처 | 변환 방식 |','|---|---|---|---|'];
+  FACTORS.forEach(f=>{
+    const d=dataStatus[f.key];
+    const st = d.status==='real' ? '실측 연동'
+             : d.status==='fail' ? '연동 실패(추정값)' : '추정값';
+    L.push(`| ${f.label} | ${st}${d.year?` (${d.year})`:''} | ${d.src} | ${CONVERSION_NOTE[f.key]||''} |`);
+  });
+  return L;
+}
+
+/* ---- CSV 내보내기 ---- */
+function toCSV(){
+  const head=['순위','국가','지역','총점',...FACTORS.map(f=>f.label),
+              '연평균기온(C)','탄소집약도(g/kWh)','데이터센터 수'];
+  const rows=ranked().map((c,i)=>[
+    i+1, c.n, c.region||'', c.score.toFixed(2),
+    ...FKEYS.map(k=>c[k]),
+    c.tc ?? '', c.ci ?? '', sitesInCountry(c.n).length,
+  ]);
+  const esc2=v=>{ const t=String(v); return /[",\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t; };
+  // Excel 이 한글을 깨지 않도록 BOM 을 붙인다
+  return '\uFEFF' + [head, ...rows].map(r=>r.map(esc2).join(',')).join('\n');
+}
+function download(name, text, type){
+  const blob=new Blob([text],{type});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+/* ---- 탐구 보고서 (학교 제출용 서식) ---- */
+function buildStudyReport(){
+  const list=ranked(), c=list.find(x=>x.n===selected);
+  const p=PURPOSES.find(x=>x.id===activePurpose);
+  const real=FKEYS.filter(k=>dataStatus[k].status==='real');
+  const est=FKEYS.filter(k=>dataStatus[k].status!=='real');
+  const sim=simulate(c), best=list[0], simBest=simulate(best);
+  const L=[];
+  L.push('# 데이터센터 최적 입지 탐구 보고서','');
+  L.push(`작성일 ${new Date().toLocaleDateString('ko-KR')}`,'');
+  L.push('## 1. 탐구 동기 및 목적','');
+  L.push('AI 서비스가 늘면서 데이터센터의 전력 소비와 탄소배출이 빠르게 증가하고 있다.');
+  L.push('데이터센터는 한번 지으면 수십 년간 운영되므로 입지 선정이 곧 장기적인 에너지·환경 부담을 결정한다.');
+  L.push('이 탐구는 **기후·전력·재생에너지·통신 인프라 등을 종합했을 때 데이터센터를 어디에 세우는 것이 가장 효율적인지**,');
+  L.push('그리고 **현재 운영 중인 데이터센터의 입지는 얼마나 적합한지**를 정량적으로 평가하는 것을 목적으로 한다.','');
+  L.push('## 2. 탐구 방법','');
+  L.push(`- 평가 대상: ${list.length}개국, 실제 운영 중인 데이터센터 ${SITES.length}곳 (${new Set(SITES.map(x=>x.co)).size}개 사업자)`);
+  L.push(`- 평가 항목: ${FACTORS.length}개 (${FACTORS.map(f=>f.label).join(', ')})`);
+  L.push(`- 가중치 기준: ${p?p.name:'사용자 지정'}`);
+  L.push(`- 기후 시나리오: ${ERAS[era].label}${era!=='now'?` (전지구 평균 +${ERAS[era].dt}°C, 위도별 증폭 적용)`:''}`);
+  L.push(`- 지표 중복 보정: ${decorrelate?'적용':'미적용'}`,'');
+  L.push('### 2-1. 점수 계산식','');
+  L.push('```');
+  L.push('최종점수 = Σ (항목 점수 × 유효 가중치) ÷ 가중치 합계');
+  FACTORS.forEach(f=>L.push(`  ${f.label} ${c[f.key]}점 × ${weights[f.key]}%`));
+  L.push(`  = ${c.score.toFixed(2)}점`);
+  L.push('```','');
+  L.push('### 2-2. 사용한 데이터','');
+  methodologyTable().forEach(r=>L.push(r));
+  L.push('');
+  L.push('## 3. 분석 결과','');
+  L.push('### 3-1. 상위 10개국','');
+  L.push('| 순위 | 국가 | 총점 | 운영 중 DC |'); L.push('|---:|---|---:|---:|');
+  list.slice(0,10).forEach((x,i)=>L.push(`| ${i+1} | ${x.n} | ${x.score.toFixed(1)} | ${sitesInCountry(x.n).length} |`));
+  L.push('');
+  L.push('### 3-2. 선택 국가 상세 분석','');
+  L.push(`**${c.n}** — 총점 ${c.score.toFixed(1)}점 (${list.findIndex(x=>x.n===c.n)+1}위)`,'');
+  FACTORS.forEach(f=>L.push(`- ${f.label} ${c[f.key]}점: ${reasonOf(f.key,c[f.key])}`));
+  L.push('');
+  L.push('### 3-3. 운영 시뮬레이션 (IT 부하 ' + itMW + 'MW, ' + COOLING[coolingMode].name + ')','');
+  L.push('| 항목 | ' + c.n + ' | ' + best.n + '(1위) |'); L.push('|---|---:|---:|');
+  L.push(`| PUE | ${sim.pue.toFixed(2)} | ${simBest.pue.toFixed(2)} |`);
+  L.push(`| 연간 전력 | ${sim.annualGWh.toFixed(0)} GWh | ${simBest.annualGWh.toFixed(0)} GWh |`);
+  L.push(`| 연간 전기요금 | $${sim.costM.toFixed(0)}M | $${simBest.costM.toFixed(0)}M |`);
+  L.push(`| 연간 탄소배출 | ${Math.round(sim.tonsCO2).toLocaleString()} tCO₂ | ${Math.round(simBest.tonsCO2).toLocaleString()} tCO₂ |`);
+  L.push('');
+  L.push('### 3-4. 모델 평가와 실제 투자의 비교','');
+  const noDC=list.filter(x=>sitesInCountry(x.n).length===0).slice(0,3);
+  const manyDC=list.map(x=>({n:x.n,r:list.findIndex(y=>y.n===x.n)+1,k:sitesInCountry(x.n).length}))
+                   .filter(x=>x.k>=3).sort((a,b)=>b.r-a.r).slice(0,3);
+  L.push(`점수가 높지만 데이터센터가 없는 국가: ${noDC.map(x=>x.n).join(', ')}`);
+  L.push(`점수가 낮지만 데이터센터가 몰린 국가: ${manyDC.map(x=>`${x.n}(${x.r}위·${x.k}곳)`).join(', ')}`);
+  L.push('');
+  L.push('이는 입지 점수만으로 실제 투자를 설명할 수 없음을 보여준다.');
+  L.push('기업은 냉각 효율보다 **이용자와의 거리(지연시간), 시장 규모, 규제 환경**을 우선하는 경우가 많다.','');
+  L.push('## 4. 결론','');
+  L.push(`${p?p.name:'현재 설정'} 기준으로 가장 적합한 입지는 **${best.n}**(${best.score.toFixed(1)}점)이다.`);
+  L.push('북유럽 국가들이 상위권을 차지하는 이유는 낮은 기온, 풍부한 수력·풍력, 안정적인 전력망이 동시에 갖춰져 있기 때문이다.');
+  L.push('그러나 이 세 조건은 서로 상관이 높아 단순 가중합에서는 중복 가산되는 문제가 있었고,');
+  L.push('상관계수를 확인해 유효 가중치를 조정한 결과 순위 격차가 줄어들었다.','');
+  L.push('## 5. 탐구의 한계','');
+  L.push(`- ${FACTORS.length}개 항목 중 ${real.length}개만 실측 데이터이며, ${est.map(k=>FLABEL[k]).join('·')}는 공개 통계를 참고한 추정값이다.`);
+  L.push('- 지표를 0–100으로 정규화하는 기준이 항목마다 달라 절대적 비교에는 한계가 있다.');
+  L.push('- 국가 단위 평균값을 사용해, 같은 나라 안의 지역차(예: 미국 오리건과 애리조나)를 반영하지 못한다.');
+  L.push('- 기후 시나리오는 IPCC 전지구 평균에 위도별 증폭을 적용한 단순 모델이며, 지역 기후모델이 아니다.');
+  L.push('- 정치적 안정성, 데이터 주권 규제, 인력 확보 가능성 등 정량화하기 어려운 요인은 제외했다.','');
+  L.push('## 6. 개선 방향','');
+  L.push('- IEA·Ember의 유료/신청 기반 API를 확보해 전력 단가와 발전 믹스를 실측으로 교체');
+  L.push('- 국가 단위가 아닌 격자(위경도) 단위 기후·전력 데이터로 해상도를 높이기');
+  L.push('- 해저케이블 경로와 변전소 위치를 반영해 통신·전력 접근성을 지점 단위로 계산');
+  L.push('- 주성분분석(PCA) 등으로 지표 중복을 통계적으로 처리');
+  L.push('- 실제 데이터센터의 공개된 PUE 값과 모델 추정치를 비교해 검증','');
+  L.push('## 7. 참고문헌','');
+  ['International Energy Agency (IEA), Electricity Information. https://www.iea.org/',
+   'Ember, Global Electricity Review. https://ember-energy.org/',
+   'World Bank Open Data. https://data.worldbank.org/',
+   'World Resources Institute, Aqueduct Water Risk Atlas. https://www.wri.org/aqueduct',
+   'Bündnis Entwicklung Hilft, WorldRiskReport. https://weltrisikobericht.de/',
+   'Ookla, Speedtest Global Index. https://www.speedtest.net/global-index',
+   'Open-Meteo, Historical Weather API. https://open-meteo.com/',
+   'IPCC, AR6 Synthesis Report. https://www.ipcc.ch/report/ar6/syr/',
+   'Uptime Institute, Global Data Center Survey.',
+  ].forEach((r,i)=>L.push(`${i+1}. ${r}`));
+  return L.join('\n');
+}
+
+function downloadReport(){
+  const md=buildReport();
+  const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`datacenter-report-${selected}-${new Date().toISOString().slice(0,10)}.md`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function previewReport(){
+  const box=$('reportBox');
+  box.style.display = box.style.display==='block' ? 'none' : 'block';
+  if(box.style.display==='block') box.textContent=buildReport();
+}
+
+/* ---- 기후 시나리오 UI ---- */
+function renderEras(){
+  $('eras').innerHTML=Object.entries(ERAS).map(([k,v])=>
+    `<button class="chip ${k===era?'on':''}" data-e="${k}" aria-pressed="${k===era}">${v.label}</button>`).join('');
+  $('eras').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    // 실시간 기온이 켜져 있으면 미래 시나리오와 충돌하므로 실시간을 끈다
+    if(b.dataset.e!=='now' && liveOn) setLive(false);
+    const beforeTop=ranked()[0], beforeSel=ranked().find(c=>c.n===selected);
+    era=b.dataset.e;
+    renderEras();
+    refresh('era');
+    const afterTop=ranked()[0], afterSel=ranked().find(c=>c.n===selected);
+    const d=(afterSel.score-beforeSel.score);
+    $('eraNote').innerHTML = era==='now'
+      ? '현재 관측·통계 기준입니다. 2035·2050을 누르면 기온 상승과 물 부족 심화를 반영한 점수를 볼 수 있습니다.'
+      : `전지구 평균기온이 <b>+${ERAS[era].dt}°C</b> 오른다고 가정하되,
+         <b>위도별 증폭</b>을 적용했습니다 (북극권 최대 ×1.9, 열대 ×0.75).
+         ${selected}의 점수는 <b style="color:${d<0?'var(--bad)':'var(--good)'}">${d>=0?'+':''}${d.toFixed(1)}점</b> 변합니다.
+         1위는 ${beforeTop.n}에서 <b>${afterTop.n}</b>으로 ${beforeTop.n===afterTop.n?'그대로입니다':'바뀝니다'}.
+         고위도는 온난화 폭이 커 <b>냉각 우위가 줄어들고</b>, 아열대 건조대는 물 부족이,
+         저위도 해안은 태풍 위험이 더 커집니다.`;
+  });
+  if(!$('eraNote').innerHTML) $('eraNote').textContent=
+    '현재 관측·통계 기준입니다. 2035·2050을 누르면 기온 상승과 물 부족 심화를 반영한 점수를 볼 수 있습니다.';
+}
+
+/* ---- 출처 목록 ---- */
+function renderSources(){
+  $('srcList').innerHTML=`<table><thead><tr><th>항목</th><th style="text-align:left">출처</th>
+    <th>단위</th><th>구분</th></tr></thead><tbody>
+    ${FACTORS.map(f=>`<tr><td>${f.label}</td>
+      <td style="text-align:left"><a href="${SOURCES[f.key].u}" target="_blank" rel="noopener"
+        style="color:var(--accent);text-decoration:none">${SOURCES[f.key].n}</a>
+        <div style="font-size:10.5px;color:var(--dim);margin-top:2px">${SOURCES[f.key].d}</div></td>
+      <td>${SOURCES[f.key].unit || '—'}</td>
+      <td style="color:${SOURCES[f.key].key?'var(--good)':'var(--mid)'}">${SOURCES[f.key].key?'실측':'배정값'}</td></tr>`).join('')}
+    <tr><td>지도</td><td style="text-align:left">OpenStreetMap · CARTO · Esri</td><td>실시간</td></tr>
+    </tbody></table>`;
+}
+
+/* ---- 화면 갱신 파이프라인 ----
+   상태가 바뀌면 렌더 함수를 하나씩 부르지 말고 이 함수만 호출한다.
+   지금까지 "드래그 중 무거운 작업" 성능 회귀가 세 번 재발했는데,
+   원인은 매번 호출 목록을 손으로 나열하다 빠뜨린 것이었다.
+   갱신 순서를 한곳에서 관리해 그 실수를 구조적으로 막는다.
+
+   scope
+     'drag'      가중치 슬라이더를 끄는 중 — 가벼운 것만
+     'weights'   가중치 확정
+     'era'       기후 시나리오 변경
+     'selection' 선택 국가 변경
+     'filter'    지도 필터 변경
+     'data'      실제 데이터 연동 등 원본이 바뀜
+*/
+function refresh(scope='weights'){
+  invalidateRank();
+  if(scope==='data'){ _corr=null; _cuts=null; }
+
+  // 1) 가벼운 갱신 — 드래그 중에도 매 프레임 안전한 것들
+  updateRankList();
+  if(scope==='selection'||scope==='era'||scope==='data') buildDetail();
+  else updateDetailScore();
+  renderCompareTable(scope!=='drag');
+  if(scope==='drag') return;
+
+  // 2) 무거운 갱신 — 조작이 끝난 뒤에만
+  renderImpact();
+  updateHeavyPanels();
+  updateMarkerColors();
+  if(filterMode!=='off') paintGrid();
+
+  // 3) 원본 데이터가 바뀐 경우에만 필요한 것들
+  if(scope==='data'){
+    renderDataPanel(); renderCorr(); renderSources();
+    gridCells=null; gridRects=null; gridLayer.clearLayers();
+    if(filterMode!=='off') paintGrid();
+  }
+}
+
+/* 외부(실시간 기온 등)에서 부르는 전체 갱신 진입점 */
+function renderRank(){ invalidateRank(); updateRankList(); }
+function renderDetail(){ buildDetail(); }
+function renderCompare(){ renderCompareTable(); }
+
+/* ============ 6-B. 자체 점검 ============
+   주소 끝에 ?selftest 를 붙이면 콘솔에서 실행된다.
+   지금까지 실제로 겪은 오류 유형(단위 환산, 배열 인덱스 유출, 선언 순서,
+   캐시 무효화 누락)을 그대로 시험 항목으로 만들어 재발을 잡는다. */
+function selfTest(){
+  const out=[]; let pass=0, fail=0;
+  const ok=(name,cond,detail)=>{ (cond?pass++:fail++); out.push([cond,name,detail||'']); };
+
+  // 1) 가중치 프리셋 합계
+  PURPOSES.forEach(p=>{
+    const sum=FKEYS.reduce((a,k)=>a+(p.w[k]||0),0);
+    ok(`프리셋 합계 100% — ${p.name}`, sum===100, `${sum}%`);
+  });
+
+  // 2) 전 국가 점수가 유효 범위인지 (NaN·인덱스 유출 감지)
+  const list=ranked();
+  ok('모든 국가 점수 계산', list.length===RANKED_SET.length, `${list.length}/${RANKED_SET.length}`);
+  ok('점수에 NaN 없음', list.every(c=>isFinite(c.score)),
+     list.filter(c=>!isFinite(c.score)).map(c=>c.n).join(','));
+  ok('점수 0~100 범위', list.every(c=>c.score>=0&&c.score<=100));
+  ok('내림차순 정렬', list.every((c,i)=>i===0||list[i-1].score>=c.score));
+
+  // 3) 시나리오 계산이 전역 era 를 오염시키지 않는지
+  const before=era;
+  ['now','e35','e50','e80','e100'].forEach(k=>rankedFor(k));
+  ok('시나리오 계산이 전역 상태를 바꾸지 않음', era===before, `${before} → ${era}`);
+
+  // 4) 단위 환산 (GWh → 요금·탄소)
+  const c=list[0], sim=simulate(c);
+  const expectCost = sim.annualGWh * estTariff(c.power);
+  const expectCO2  = sim.annualGWh * estCarbonIntensity(c);
+  ok('전기요금 단위 환산', Math.abs(sim.costM-expectCost)<0.01, `${sim.costM.toFixed(1)}M`);
+  ok('탄소배출 단위 환산', Math.abs(sim.tonsCO2-expectCO2)<1, `${Math.round(sim.tonsCO2)}t`);
+  ok('전력량이 현실 범위(50MW≈400~700GWh)', sim.annualGWh>300 && sim.annualGWh<900,
+     `${sim.annualGWh.toFixed(0)}GWh`);
+
+  // 5) 지점·그룹 무결성
+  ok('모든 지점이 그룹에 배정', GROUPS.reduce((a,g)=>a+g.sites.length,0)===SITES.length);
+  ok('지점→그룹 역참조 정상', SITES.every(x=>typeof x._g==='number'&&GROUPS[x._g]));
+  const names=new Set(RANKED_SET.map(x=>x.n));
+  const bad=[...new Set(SITES.map(x=>x.ct))].filter(x=>!names.has(x));
+  ok('지점 국가명이 모두 매칭', bad.length===0, bad.join(','));
+
+  // 6) 데이터 무결성
+  ok('모든 국가에 8개 지표 존재',
+     RANKED_SET.every(c=>FKEYS.every(k=>typeof c[k]==='number')));
+  ok('기온·탄소 원자료 존재',
+     RANKED_SET.every(c=>typeof c.tc==='number'&&typeof c.ci==='number'));
+
+  // 7) 외기 냉방 물리 제약
+  const sg=list.find(x=>x.n==='싱가포르');
+  ok('더운 지역은 외기 냉방 이점 없음', !sg || freeCoolFeasibility(sg)<0.05);
+
+  // 8) 캐시 무효화
+  const s1=ranked()[0].score;
+  const keep=weights.temp; weights.temp=0; invalidateRank();
+  const s2=ranked()[0].score;
+  weights.temp=keep; invalidateRank();
+  ok('가중치 변경 시 순위 캐시 갱신', s1!==s2);
+
+  console.log(`%c[Atlas 자체 점검] 통과 ${pass} / 실패 ${fail}`,
+    `color:${fail?'#D2634A':'#4FBF87'};font-weight:bold`);
+  out.forEach(([o,n,d])=>console.log(`  ${o?'✔':'✘'} ${n}${d?'  — '+d:''}`));
+  return {pass, fail};
+}
+if(location.search.includes('selftest')) setTimeout(selfTest, 400);
+
+/* ============ 7. 초기화 ============ */
+$('stCount').textContent=SITES.length;
+const scn=$('siteCountNote');
+if(scn) scn.textContent=`전 세계에는 약 11,000개의 데이터센터가 있습니다. `
+  +`이 지도에는 ${new Set(SITES.map(x=>x.co)).size}개 사업자의 대표 캠퍼스 ${SITES.length}곳을 표시합니다.`;
+// 같은 도시의 지점은 하나로 묶여 표시되므로 마커 수를 함께 알려 준다
+$('stCountLabel').textContent = GROUPS.length<SITES.length
+  ? `수록 지점 · ${GROUPS.length}군` : '수록 지점';
+$('stCountLabel').title = `데이터센터 ${SITES.length}곳을 지도에서는 ${GROUPS.length}개 마커로 묶어 표시합니다`;
+restoreFromURL();
+applyTemp(); invalidateRank();
+renderLive(); renderChips(); buildWeights(); renderImpact();
+buildRankList(); updateRankList(); buildDetail(); buildCompare(); updateMarkerColors();
+renderEras(); renderSources();
+/* ---- 아코디언: 분석 탭의 긴 섹션을 접을 수 있게 ---- */
+function setupAccordion(){
+  const targets=['aiBox','detail','breakBox','simBox','siteCmp'];
+  document.querySelectorAll('#analysisPane section').forEach(sec=>{
+    const body=sec.querySelector('.ai-box,.detail,.break-box,.sim-box,.site-cmp');
+    if(!body) return;
+    const head=sec.querySelector('.sec-head');
+    head.classList.add('collapsible');
+    head.insertAdjacentHTML('beforeend','<span class="acc-arrow">▾</span>');
+    head.setAttribute('role','button');
+    head.setAttribute('tabindex','0');
+    head.setAttribute('aria-expanded','true');
+    const toggle=()=>{
+      const closed=sec.classList.toggle('closed');
+      head.setAttribute('aria-expanded', String(!closed));
+    };
+    head.addEventListener('click',toggle);
+    head.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); }
+    });
+  });
+}
+
+/* ---- 기본 / 고급 모드 ---- */
+function setMode(adv){
+  $('weights').style.display = adv ? '' : 'none';
+  $('modeHint').style.display = adv ? 'none' : '';
+  $('modeAdv').classList.toggle('on', adv);
+  $('modeBasic').classList.toggle('on', !adv);
+  $('modeAdv').setAttribute('aria-pressed', String(adv));
+  $('modeBasic').setAttribute('aria-pressed', String(!adv));
+}
+/* ---- 지표 중복(상관) 보정 ---- */
+function renderCorr(){
+  const C=corrMatrix();
+  const pairs=[];
+  FKEYS.forEach((a,i)=>FKEYS.slice(i+1).forEach(b=>{
+    const r=C[a][b];
+    if(Math.abs(r)>=0.5) pairs.push({a,b,r});
+  }));
+  pairs.sort((x,y)=>Math.abs(y.r)-Math.abs(x.r));
+  $('decorrNote').textContent = decorrelate
+    ? `중복 ${pairs.length}쌍의 가중치를 낮춰 계산 중`
+    : `상관 0.5 이상인 항목이 ${pairs.length}쌍 있습니다`;
+  $('corrBox').innerHTML = pairs.length ? `
+    <div class="corr-title">서로 겹치는 지표</div>
+    ${pairs.map(p=>`<div class="corr-row">
+      <span>${FLABEL[p.a]} ↔ ${FLABEL[p.b]}</span>
+      <span class="corr-r" style="color:${Math.abs(p.r)>=0.7?'var(--bad)':'var(--mid)'}">r = ${p.r.toFixed(2)}</span>
+    </div>`).join('')}
+    <div class="corr-note">예를 들어 전력망이 안정적인 나라는 대체로 인터넷 인프라도 좋습니다.
+      두 항목에 모두 가중치를 주면 같은 성질이 두 번 반영됩니다.
+      보정을 켜면 겹치는 만큼 유효 가중치를 낮춰 계산합니다.</div>` : '';
+}
+$('decorrToggle').onchange=e=>{
+  decorrelate=e.target.checked;
+  renderCorr();
+  refresh('weights');
+};
+
+$('modeBasic').onclick=e=>{ e.stopPropagation(); setMode(false); };
+$('modeAdv').onclick=e=>{ e.stopPropagation(); setMode(true); };
+setMode(true);   // 가중치 슬라이더를 기본으로 펼쳐 둔다
+
+/* ---- 예시 데이터 배너 ---- */
+// 저장소를 못 쓰는 환경에서도 앱이 멈추지 않도록 감싼다
+const store={
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
+};
+if(store.get('atlas.banner')==='closed') $('dataBanner').style.display='none';
+$('nbClose').onclick=()=>{ $('dataBanner').style.display='none'; store.set('atlas.banner','closed'); };
+
+$('repPreview').onclick=previewReport;
+$('repDownload').onclick=downloadReport;
+$('repStudy').onclick=()=>{
+  const box=$('reportBox');
+  box.style.display='block'; box.textContent=buildStudyReport();
+  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  download(`탐구보고서-${selected}-${new Date().toISOString().slice(0,10)}.md`,
+           buildStudyReport(), 'text/markdown;charset=utf-8');
+};
+$('repCSV').onclick=()=>download(
+  `datacenter-scores-${new Date().toISOString().slice(0,10)}.csv`, toCSV(), 'text/csv;charset=utf-8');
+$('repPDF').onclick=()=>{
+  const box=$('reportBox');
+  box.style.display='block'; box.textContent=buildReport();
+  document.body.classList.add('printing');
+  setTimeout(()=>{ window.print();
+    setTimeout(()=>document.body.classList.remove('printing'),400); },120);
+};
+$('repShare').onclick=async ()=>{
+  const url=shareURL();
+  try{ await navigator.clipboard.writeText(url); $('repShare').textContent='링크가 복사되었습니다'; }
+  catch(e){ prompt('아래 링크를 복사하세요', url); }
+  setTimeout(()=>{ $('repShare').textContent='분석 결과 링크 복사'; },2200);
+};
+$('searchInput').addEventListener('input',e=>runSearch(e.target.value));
+$('searchInput').addEventListener('blur',()=>setTimeout(()=>{ $('searchResults').style.display='none'; },180));
+$('searchInput').addEventListener('focus',e=>{ if(e.target.value.trim()) runSearch(e.target.value); });
+renderBreakdown(); renderSimulator();
+setupAccordion(); updateMarkerScale(); renderCorr(); renderDataPanel(); renderSiteFilter();
+</script>
+</body>
+</html>
