@@ -6,6 +6,8 @@
 **심화 탐구 주제**
 데이터센터는 세계 어디에 설치하는 것이 가장 효율적이며, 현재 운영 중인 데이터센터의 입지는 얼마나 적합한가?
 
+**[라이브 데모 열기](https://jaeu1234.github.io/Datacenter-atlas/)**
+
 ---
 
 ## 실행 방법
@@ -13,13 +15,13 @@
 별도 설치나 빌드 과정이 없습니다.
 
 ```bash
-git clone https://github.com/<사용자명>/datacenter-atlas.git
-cd datacenter-atlas
+git clone https://github.com/jaeu1234/Datacenter-atlas.git
+cd Datacenter-atlas
 # index.html 을 브라우저로 열면 끝
 ```
 
 GitHub Pages로 배포하려면 저장소 **Settings → Pages → Source: main / (root)** 를 선택하세요.
-`https://<사용자명>.github.io/datacenter-atlas/` 에서 바로 열립니다.
+`https://jaeu1234.github.io/Datacenter-atlas/` 에서 바로 열립니다.
 
 ---
 

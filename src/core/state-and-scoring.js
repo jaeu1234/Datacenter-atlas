@@ -16,6 +16,9 @@ let liveTimer    = null;                // 실시간 갱신 타이머 핸들
 let liveState    = {s:'idle', at:null, msg:''};  // 실시간 갱신 상태
 
 const totalWeight = ()=> FKEYS.reduce((a,k)=>a+weights[k],0);
+/* weights 는 반드시 이 함수를 통해서만 바꾼다 — 값을 바꾸고 캐시를 무효화하는 걸
+   둘 다 잊지 않게 하나로 묶어 둔다. (직접 대입하면 순위가 갱신되지 않는 버그가 난다) */
+function setWeights(patch){ Object.assign(weights, patch); invalidateRank(); }
 /* ---- 기후 시나리오 ----
    IPCC 중간 경로(SSP2-4.5) 기준 전지구 평균기온 상승폭을 단순 적용한다.
    기온 외에 물 부족(건조지 가중)과 기상재해 위험도 함께 악화시킨다. */
@@ -114,5 +117,6 @@ function ranked(){
   return _rankCache;
 }
 const color = s => s>=85?'#4FBF87' : s>=65?'#E0A63F' : '#D2634A';
+const scoreTier = s => s>=85?'good' : s>=65?'mid' : 'bad';
 const stars = s => { const n=Math.round(s/20); return '★★★★★'.slice(0,n)+'☆☆☆☆☆'.slice(0,5-n); };
 

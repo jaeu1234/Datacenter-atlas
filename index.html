@@ -4,16 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DataCenter Atlas</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+      integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb"
+      crossorigin="anonymous" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0A1930; --bg-2:#0D2141; --card:#12294B; --line:rgba(133,178,224,0.16);
-  --ink:#EAF3FF; --muted:#8FAECC; --dim:#5A7CA0;
+  --ink:#EAF3FF; --muted:#8FAECC; --dim:#6C90BC;
   --good:#4FBF87; --mid:#E0A63F; --bad:#D2634A; --accent:#57C7E8;
+  /* 본문·라벨용 크기 스케일. 개별 px 값을 낱개로 늘리지 말고 이 5단계 안에서 고른다.
+     18px 이상(제목·점수 숫자)은 의도적으로 스케일 밖에 둔 강조용 크기라 그대로 리터럴로 쓴다. */
+  --fs-1:10px; --fs-2:11.5px; --fs-3:12.5px; --fs-4:13px; --fs-5:14.5px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.leaflet-marker-icon:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:50%;}
 html,body{height:100%;}
 body{
   background:var(--bg); color:var(--ink);
@@ -34,15 +41,15 @@ header{
 .brand span{color:var(--good);}
 .hd-stats{display:flex;gap:18px;font-family:'IBM Plex Mono',monospace;}
 .hd-stats .st{text-align:right;}
-.hd-stats .st .n{font-size:15px;font-weight:600;}
-.hd-stats .st .l{font-size:8.5px;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;margin-top:1px;}
+.hd-stats .st .n{font-size:var(--fs-5);font-weight:600;}
+.hd-stats .st .l{font-size:var(--fs-1);letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;margin-top:1px;}
 .tabs{display:flex;gap:2px;margin-top:9px;}
 .tab{
-  background:none;border:none;color:var(--dim);font-family:inherit;font-size:13px;
+  background:none;border:none;color:var(--dim);font-family:inherit;font-size:var(--fs-4);
   padding:9px 15px;cursor:pointer;border-bottom:2px solid transparent;font-weight:500;
 }
 .tab:hover{color:var(--muted);}
-.tab.on{color:var(--ink);border-bottom-color:var(--good);font-weight:600;}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600;}
 
 /* ---------- panes ---------- */
 .pane{flex:1;min-height:0;display:none;}
@@ -56,7 +63,7 @@ header{
 .leaflet-container{background:#AADAFF;}
 .leaflet-tile-pane{filter:saturate(1.05) brightness(1.02);}
 .leaflet-control-zoom{display:none;}
-.leaflet-control-attribution{background:rgba(255,255,255,0.75)!important;font-size:9px!important;}
+.leaflet-control-attribution{background:rgba(255,255,255,0.75)!important;font-size:var(--fs-1)!important;}
 
 .country-label{
   position:absolute;transform:translate(-50%,-50%);white-space:nowrap;text-align:center;
@@ -76,19 +83,21 @@ header{
 .dc-marker.selected .ring{animation:pulse 1.6s ease-out infinite;}
 @keyframes pulse{0%{transform:scale(0.7);opacity:0.55;}100%{transform:scale(1.9);opacity:0;}}
 
+.dc-marker.tier-mid .core{border-radius:3px;}
+.dc-marker.tier-bad .core{border-radius:2px;transform:rotate(45deg);}
 .dc-marker.multi .core{width:10px;height:10px;}
 .mk-count{position:absolute;top:-9px;right:-11px;background:#12294B;color:#EAF3FF;
-  border:1.5px solid currentColor;border-radius:999px;font-size:9.5px;font-weight:700;
+  border:1.5px solid currentColor;border-radius:999px;font-size:var(--fs-1);font-weight:700;
   min-width:16px;height:16px;line-height:13px;text-align:center;padding:0 3px;
   font-family:'IBM Plex Mono',monospace;}
 
 .grp-list{display:flex;flex-direction:column;gap:4px;margin-top:9px;}
 .grp-item{display:flex;justify-content:space-between;align-items:center;gap:10px;
   background:rgba(133,178,224,0.06);border:1px solid var(--line);border-radius:6px;
-  padding:8px 11px;cursor:pointer;font-family:inherit;font-size:12.5px;color:var(--ink);
+  padding:8px 11px;cursor:pointer;font-family:inherit;font-size:var(--fs-3);color:var(--ink);
   transition:border-color .15s,background .15s;text-align:left;}
 .grp-item:hover{border-color:var(--accent);}
-.grp-item.on{border-color:var(--good);background:rgba(79,191,135,0.1);}
+.grp-item.on{border-color:var(--accent);background:rgba(87,199,232,0.1);}
 .gi-nm{font-weight:600;} .gi-nm em{font-style:normal;font-weight:400;color:var(--muted);margin-left:5px;}
 .gi-sc{font-family:'IBM Plex Mono',monospace;font-weight:600;}
 
@@ -102,19 +111,21 @@ header{
 /* map overlays */
 .ov{position:absolute;z-index:1000;background:#fff;border-radius:4px;
   box-shadow:0 1px 5px rgba(0,0,0,0.28);color:#3B4551;}
-.legend{left:14px;top:14px;padding:10px 13px;font-size:12px;}
-.legend .title{font-size:9.5px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
+.legend{left:14px;top:14px;padding:10px 13px;font-size:var(--fs-3);}
+.legend .title{font-size:var(--fs-1);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
   color:#7A8798;margin-bottom:8px;}
 .legend .row{display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:500;}
 .legend .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.legend .dot.tier-mid{border-radius:3px;}
+.legend .dot.tier-bad{border-radius:2px;transform:rotate(45deg);}
 .scale{display:flex;height:9px;border-radius:2px;overflow:hidden;margin-top:2px;width:150px;}
 .scale i{flex:1;}
-.scale-lb{display:flex;justify-content:space-between;font-size:10px;color:#7A8798;margin-top:4px;}
+.scale-lb{display:flex;justify-content:space-between;font-size:var(--fs-1);color:#7A8798;margin-top:4px;}
 
 .filter-panel{left:14px;top:auto;bottom:14px;padding:10px 12px;max-width:210px;}
-.f-title{font-size:9.5px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
+.f-title{font-size:var(--fs-1);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
   color:#7A8798;margin-bottom:8px;}
-.f-hint{font-size:10.5px;color:#7A8798;margin-top:8px;line-height:1.45;}
+.f-hint{font-size:var(--fs-1);color:#7A8798;margin-top:8px;line-height:1.45;}
 
 .zoom-ctrl{right:14px;bottom:14px;display:flex;flex-direction:column;overflow:hidden;padding:0;}
 .zoom-ctrl button{width:40px;height:40px;border:none;background:#fff;color:#333;
@@ -123,61 +134,61 @@ header{
 .zoom-ctrl button+button{border-top:1px solid #e6e6e6;}
 
 .map-notice{display:none;top:50%;left:50%;transform:translate(-50%,-50%);max-width:340px;
-  text-align:center;padding:16px 20px;font-size:13px;line-height:1.6;}
+  text-align:center;padding:16px 20px;font-size:var(--fs-4);line-height:1.6;}
 
 /* map side panel */
 .mpanel{width:0;height:100%;overflow:hidden;background:var(--bg-2);
   border-left:1px solid var(--line);transition:width .3s cubic-bezier(.4,0,.2,1);flex-shrink:0;}
 .mpanel.open{width:360px;}
 .mpanel-in{width:360px;height:100%;padding:22px 20px;overflow-y:auto;}
-.p-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;
+.p-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-1);letter-spacing:0.16em;
   color:var(--dim);text-transform:uppercase;display:flex;justify-content:space-between;gap:8px;}
 .p-close{cursor:pointer;}
 .p-close:hover{color:var(--ink);}
 .mpanel h2{font-family:'Space Grotesk',sans-serif;font-size:21px;font-weight:600;margin-top:9px;line-height:1.25;}
-.mpanel .sub{color:var(--muted);font-size:12.5px;margin-top:4px;}
+.mpanel .sub{color:var(--muted);font-size:var(--fs-3);margin-top:4px;}
 .score-block{margin-top:18px;padding-top:15px;border-top:1px dashed var(--line);
   display:flex;align-items:flex-end;justify-content:space-between;}
 .score-block .num{font-family:'IBM Plex Mono',monospace;font-size:40px;font-weight:600;line-height:1;}
-.score-block .num small{font-size:14px;color:var(--dim);font-weight:400;}
+.score-block .num small{font-size:var(--fs-5);color:var(--dim);font-weight:400;}
 .stars{font-size:16px;letter-spacing:2px;}
-.sec-t{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;
+.sec-t{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-1);letter-spacing:0.14em;
   text-transform:uppercase;color:var(--dim);margin-top:18px;padding-top:13px;border-top:1px dashed var(--line);}
 ul.flist{list-style:none;margin-top:9px;}
-ul.flist li{display:flex;gap:9px;font-size:13px;line-height:1.55;margin-top:6px;}
+ul.flist li{display:flex;gap:9px;font-size:var(--fs-4);line-height:1.55;margin-top:6px;}
 ul.flist li .mk{font-family:'IBM Plex Mono',monospace;font-weight:600;flex-shrink:0;}
 ul.flist.good li .mk{color:var(--good);} ul.flist.bad li .mk{color:var(--bad);}
 .metrics{margin-top:18px;padding-top:13px;border-top:1px dashed var(--line);
   display:grid;grid-template-columns:1fr 1fr;gap:11px 14px;}
-.metric .lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:0.06em;}
+.metric .lbl{font-size:var(--fs-1);color:var(--dim);text-transform:uppercase;letter-spacing:0.06em;}
 .metric .bar{height:4px;background:rgba(133,178,224,0.15);margin-top:5px;position:relative;}
 .metric .bar i{position:absolute;inset:0 auto 0 0;}
-.metric .val{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px;}
-.note-txt{font-size:12.5px;line-height:1.7;color:var(--muted);margin-top:9px;}
+.metric .val{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-2);color:var(--muted);margin-top:4px;}
+.note-txt{font-size:var(--fs-3);line-height:1.7;color:var(--muted);margin-top:9px;}
 .clim-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px;margin-top:11px;}
 .cl{background:rgba(133,178,224,0.06);border:1px solid var(--line);border-radius:6px;padding:8px 10px;}
-.cl .ck{font-size:10px;color:var(--dim);letter-spacing:0.02em;}
-.cl .cv{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;margin-top:3px;}
+.cl .ck{font-size:var(--fs-1);color:var(--dim);letter-spacing:0.02em;}
+.cl .cv{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-5);font-weight:600;margin-top:3px;}
 .placeholder{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;padding:0 26px;color:var(--dim);}
 .placeholder .glyph{font-size:26px;margin-bottom:12px;}
-.placeholder p{font-size:12.5px;line-height:1.7;}
+.placeholder p{font-size:var(--fs-3);line-height:1.7;}
 
 /* ---------- shared controls ---------- */
 .live-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
   background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:11px 15px;margin-bottom:22px;}
 .live-left{display:flex;align-items:center;gap:9px;}
-.live-text{font-size:12.5px;color:var(--muted);}
+.live-text{font-size:var(--fs-3);color:var(--muted);}
 .live-dot{width:9px;height:9px;border-radius:50%;background:var(--dim);flex-shrink:0;}
 .live-dot.on{background:var(--good);box-shadow:0 0 0 4px rgba(79,191,135,0.18);animation:blink 2.4s ease-in-out infinite;}
 .live-dot.load{background:var(--accent);animation:blink 1s linear infinite;}
 .live-dot.err{background:var(--bad);}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.35}}
 .live-right{display:flex;align-items:center;gap:11px;}
-.switch{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;}
+.switch{display:flex;align-items:center;gap:6px;font-size:var(--fs-3);color:var(--muted);cursor:pointer;}
 .switch input{accent-color:var(--good);width:16px;height:16px;cursor:pointer;}
 .mini-btn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;
-  padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;}
+  padding:6px 12px;font-size:var(--fs-3);cursor:pointer;font-family:inherit;}
 .mini-btn:hover:not(:disabled){border-color:var(--accent);color:var(--ink);}
 .mini-btn:disabled{opacity:0.4;cursor:default;}
 
@@ -185,123 +196,127 @@ section{margin-bottom:30px;}
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;
   padding-bottom:9px;margin-bottom:15px;border-bottom:1px solid var(--line);}
 .sec-head h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;}
-.sec-head .note{font-size:11.5px;color:var(--dim);}
+.sec-head .note{font-size:var(--fs-2);color:var(--dim);}
+/* 분석 탭 10개 섹션이 전부 같은 무게로 보이던 문제 — 핵심 콘텐츠(순위·상세분석)만 살짝 강조한다 */
+.sec-head.primary{border-bottom-color:var(--accent);}
+.sec-head.primary h2{font-size:18px;}
 
 .chips{display:flex;gap:7px;flex-wrap:wrap;}
 .chip{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);padding:8px 14px;
-  border-radius:999px;font-size:12.5px;cursor:pointer;transition:all .16s;font-weight:500;font-family:inherit;}
+  border-radius:999px;font-size:var(--fs-3);cursor:pointer;transition:all .16s;font-weight:500;font-family:inherit;}
 .chip:hover{border-color:var(--accent);color:var(--ink);}
-.chip.on{background:var(--good);border-color:var(--good);color:#06251A;font-weight:600;}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#062430;font-weight:600;}
 
 .weights{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 22px;
   background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:17px 19px;}
-.w-row label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:5px;}
+.w-row label{display:flex;justify-content:space-between;font-size:var(--fs-3);color:var(--muted);margin-bottom:5px;}
 .w-row label b{font-family:'IBM Plex Mono',monospace;color:var(--ink);}
 .w-row{user-select:none;-webkit-user-select:none;}
 .w-row label b{font-variant-numeric:tabular-nums;}
 input[type=range]{width:100%;accent-color:var(--good);height:22px;cursor:pointer;
   background:transparent;display:block;}
 input[type=range]:active{cursor:grabbing;}
-.w-hint{font-size:11px;color:var(--dim);margin-top:5px;line-height:1.45;}
+.w-hint{font-size:var(--fs-2);color:var(--dim);margin-top:5px;line-height:1.45;}
 .impact{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:13px 16px;
-  margin-top:13px;font-size:12.5px;color:var(--muted);line-height:1.7;}
+  margin-top:13px;font-size:var(--fs-3);color:var(--muted);line-height:1.7;}
 .impact b{color:var(--ink);} .impact .up{color:var(--good);} .impact .down{color:var(--bad);}
 
 .rank-list{display:flex;flex-direction:column;gap:5px;}
 .rank-row{display:grid;grid-template-columns:32px 1fr 84px 54px;align-items:center;gap:11px;
   background:var(--bg-2);border:1px solid var(--line);border-radius:6px;padding:10px 13px;
-  cursor:pointer;transition:border-color .15s,transform .15s;}
+  cursor:pointer;transition:border-color .15s,transform .15s;
+  width:100%;font:inherit;color:inherit;text-align:left;}
 .rank-row:hover{border-color:var(--accent);transform:translateX(2px);}
-.rank-row.sel{border-color:var(--good);}
-.rank-row .pos{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--dim);}
-.rank-row .nm{font-size:13.5px;font-weight:600;}
-.rank-row .nm em{font-style:normal;font-size:11px;color:var(--dim);margin-left:6px;font-weight:400;}
+.rank-row.sel{border-color:var(--accent);}
+.rank-row .pos{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-3);color:var(--dim);}
+.rank-row .nm{font-size:var(--fs-4);font-weight:600;}
+.rank-row .nm em{font-style:normal;font-size:var(--fs-2);color:var(--dim);margin-left:6px;font-weight:400;}
 .rank-row .bar{height:5px;background:rgba(133,178,224,0.14);border-radius:3px;position:relative;}
 .rank-row .bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;}
-.rank-row .sc{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;text-align:right;}
+.rank-row .sc{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-5);font-weight:600;text-align:right;}
 
 .detail{display:grid;grid-template-columns:280px 1fr;gap:22px;background:var(--bg-2);
   border:1px solid var(--line);border-radius:8px;padding:20px;}
 .radar-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;}
 .detail h3{font-family:'Space Grotesk',sans-serif;font-size:19px;}
 .detail .big{font-family:'IBM Plex Mono',monospace;font-size:36px;font-weight:600;line-height:1;}
-.detail .big small{font-size:13px;color:var(--dim);font-weight:400;}
+.detail .big small{font-size:var(--fs-4);color:var(--dim);font-weight:400;}
 .mrows{display:flex;flex-direction:column;gap:10px;margin-top:15px;}
 .verdict{margin-top:16px;padding-top:13px;border-top:1px dashed var(--line);
-  font-size:12.5px;line-height:1.65;color:var(--muted);}
+  font-size:var(--fs-3);line-height:1.65;color:var(--muted);}
 .verdict b{color:var(--ink);}
 
 select{background:var(--bg-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;
-  padding:9px 12px;font-size:13px;font-family:inherit;min-width:150px;}
+  padding:9px 12px;font-size:var(--fs-4);font-family:inherit;min-width:150px;}
 table{width:100%;border-collapse:collapse;background:var(--bg-2);border:1px solid var(--line);
-  border-radius:8px;overflow:hidden;font-size:13px;}
+  border-radius:8px;overflow:hidden;font-size:var(--fs-4);}
 th,td{padding:10px 13px;text-align:right;border-bottom:1px solid var(--line);}
 th:first-child,td:first-child{text-align:left;color:var(--muted);}
-thead th{font-size:11.5px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;}
+thead th{font-size:var(--fs-2);color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;}
 tbody tr:last-child td{border-bottom:none;font-weight:700;background:rgba(133,178,224,0.05);}
 td.win{color:var(--good);font-weight:600;}
 td .n{font-family:'IBM Plex Mono',monospace;}
-.disclaimer{font-size:11.5px;color:var(--dim);line-height:1.65;border-left:2px solid var(--line);
+.disclaimer{font-size:var(--fs-2);color:var(--dim);line-height:1.65;border-left:2px solid var(--line);
   padding-left:12px;margin-top:6px;}
 
 
-/* ---------- AI 분석 의견 ---------- */
+/* ---------- 자동 분석 요약 ---------- */
 .ai-box{background:linear-gradient(180deg,rgba(79,191,135,0.07),rgba(13,33,65,0.6));
   border:1px solid rgba(79,191,135,0.28);border-radius:10px;padding:18px 20px;
   animation:fadeUp .35s ease both;}
-.ai-head{font-size:14.5px;line-height:1.7;color:var(--ink);margin-bottom:12px;}
+.ai-head{font-size:var(--fs-5);line-height:1.7;color:var(--ink);margin-bottom:12px;}
 .ai-head b{color:var(--good);}
-.ai-sub{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;
+.ai-sub{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-1);letter-spacing:0.14em;
   text-transform:uppercase;color:var(--dim);margin-top:14px;}
-.ai-box ul.flist li{font-size:13px;line-height:1.6;}
-.ai-real{margin-top:14px;padding:10px 13px;border-radius:6px;font-size:12.5px;line-height:1.65;
+.ai-box ul.flist li{font-size:var(--fs-4);line-height:1.6;}
+.ai-real{margin-top:14px;padding:10px 13px;border-radius:6px;font-size:var(--fs-3);line-height:1.65;
   background:rgba(79,191,135,0.12);color:var(--ink);}
 .ai-real.warn{background:rgba(224,166,63,0.12);}
 .ai-concl{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);
-  font-size:13.5px;line-height:1.7;color:var(--muted);}
+  font-size:var(--fs-4);line-height:1.7;color:var(--muted);}
 .ai-concl b{color:var(--ink);}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
 
 /* ---------- 항목별 근거 카드 ---------- */
 .mrow2{padding:10px 0;border-bottom:1px solid rgba(133,178,224,0.08);}
 .mrow2:last-child{border-bottom:none;}
-.m2-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;margin-bottom:6px;}
+.m2-top{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fs-4);margin-bottom:6px;}
 .m2-top .lb{color:var(--ink);font-weight:500;}
-.m2-top .vl{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+.m2-top .vl{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-5);font-weight:600;}
 .mrow2 .bar{height:6px;background:rgba(133,178,224,0.14);border-radius:3px;position:relative;overflow:hidden;}
 .mrow2 .bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;transition:width .35s ease;}
-.m2-why{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:6px;}
-.m2-src{font-size:10px;color:var(--dim);margin-top:3px;}
-.m2-raw{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:10.5px;}
+.m2-why{font-size:var(--fs-2);color:var(--muted);line-height:1.55;margin-top:6px;}
+.m2-src{font-size:var(--fs-1);color:var(--dim);margin-top:3px;}
+.m2-raw{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:var(--fs-1);}
 
 /* ---------- 실제 데이터센터 비교 ---------- */
 .site-cmp{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;}
-.sc-head{font-size:12.5px;color:var(--muted);margin-bottom:10px;padding-bottom:9px;
+.sc-head{font-size:var(--fs-3);color:var(--muted);margin-bottom:10px;padding-bottom:9px;
   border-bottom:1px dashed var(--line);}
 .sc-row{display:grid;grid-template-columns:1fr 52px 46px 1.3fr;gap:10px;align-items:center;
-  padding:8px 0;font-size:12.5px;border-bottom:1px solid rgba(133,178,224,0.07);}
+  padding:8px 0;font-size:var(--fs-3);border-bottom:1px solid rgba(133,178,224,0.07);}
 .sc-row:last-child{border-bottom:none;}
 .sc-nm{font-weight:600;} .sc-nm span{font-weight:400;color:var(--muted);}
 .sc-sc,.sc-df{font-family:'IBM Plex Mono',monospace;text-align:right;font-weight:600;}
-.sc-note{font-size:11.5px;color:var(--dim);text-align:right;}
+.sc-note{font-size:var(--fs-2);color:var(--dim);text-align:right;}
 
 /* ---------- 보고서 ---------- */
 .rep-actions{display:flex;gap:9px;flex-wrap:wrap;}
 .mini-btn.primary{background:var(--good);border-color:var(--good);color:#06251A;font-weight:600;}
 .mini-btn.primary:hover{filter:brightness(1.08);}
 .report-box{margin-top:14px;background:#08152A;border:1px solid var(--line);border-radius:8px;
-  padding:16px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.7;
+  padding:16px;font-family:'IBM Plex Mono',monospace;font-size:var(--fs-2);line-height:1.7;
   color:var(--muted);white-space:pre-wrap;max-height:420px;overflow:auto;}
 
 /* ---------- 다중 국가 비교 ---------- */
 .pick-box{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
 .pchip{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);border-radius:999px;
-  padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;}
+  padding:6px 12px;font-size:var(--fs-3);cursor:pointer;font-family:inherit;transition:all .15s;}
 .pchip:hover{border-color:var(--accent);}
-.pchip.on{background:rgba(79,191,135,0.1);font-weight:600;}
+.pchip.on{background:rgba(133,178,224,0.12);font-weight:600;}
 .cmp-radar{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:18px;
   background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:16px;}
-.legend-series{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);}
+.legend-series{display:flex;flex-wrap:wrap;gap:14px;font-size:var(--fs-3);color:var(--muted);}
 .legend-series span{display:flex;align-items:center;gap:6px;}
 .legend-series i{width:10px;height:10px;border-radius:2px;}
 
@@ -312,20 +327,21 @@ td .n{font-family:'IBM Plex Mono',monospace;}
 /* ---------- 검색 (헤더) ---------- */
 .search-box{position:relative;flex:0 1 220px;min-width:120px;}
 .search-box input{width:100%;border:1px solid var(--line);border-radius:6px;
-  padding:8px 12px;font-size:12.5px;font-family:inherit;color:var(--ink);
+  padding:8px 12px;font-size:var(--fs-3);font-family:inherit;color:var(--ink);
   background:rgba(133,178,224,0.08);outline:none;transition:border-color .16s,background .16s;}
 .search-box input:focus{border-color:var(--accent);background:rgba(133,178,224,0.14);}
 .search-box input::placeholder{color:var(--dim);}
 .search-results{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:1200;
-  background:#fff;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  background:var(--bg-2);border:1px solid var(--line);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.45);
   max-height:280px;overflow-y:auto;}
-.sr{padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;
-  align-items:baseline;border-bottom:1px solid #F2F5F8;}
+.sr{width:100%;font:inherit;color:inherit;background:none;border:none;
+  padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;
+  align-items:baseline;border-bottom:1px solid rgba(133,178,224,0.1);}
 .sr:last-child{border-bottom:none;}
-.sr:hover{background:#F5F8FB;}
-.sr-nm{font-size:12.5px;color:#3B4551;font-weight:500;}
-.sr-sub{font-size:10.5px;color:#9AA6B4;}
-.sr-empty{padding:10px 12px;font-size:12px;color:#9AA6B4;}
+.sr:hover{background:rgba(133,178,224,0.09);}
+.sr-nm{font-size:var(--fs-3);color:var(--ink);font-weight:500;}
+.sr-sub{font-size:var(--fs-1);color:var(--dim);}
+.sr-empty{padding:10px 12px;font-size:var(--fs-3);color:var(--dim);}
 
 /* ---------- 계산 과정 ---------- */
 .break-box{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:16px 18px;}
@@ -333,27 +349,27 @@ td .n{font-family:'IBM Plex Mono',monospace;}
 .bd-bar i{transition:width .35s ease;}
 .bd-list{display:flex;flex-direction:column;gap:2px;}
 .bd-row{display:grid;grid-template-columns:12px 1fr auto 52px;align-items:center;gap:10px;
-  font-size:12.5px;padding:5px 0;}
+  font-size:var(--fs-3);padding:5px 0;}
 .bd-dot{width:9px;height:9px;border-radius:2px;}
 .bd-nm{color:var(--ink);}
-.bd-calc{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dim);}
+.bd-calc{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-2);color:var(--dim);}
 .bd-val{font-family:'IBM Plex Mono',monospace;text-align:right;color:var(--muted);font-weight:600;}
 .bd-total{border-top:1px dashed var(--line);margin-top:6px;padding-top:9px;}
 .bd-total .bd-nm,.bd-total .bd-val{color:var(--good);font-weight:700;}
 
 /* ---------- 시뮬레이터 ---------- */
 .sim-box{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:16px 18px;}
-.sim-input label{display:flex;align-items:center;gap:12px;font-size:12.5px;color:var(--muted);}
+.sim-input label{display:flex;align-items:center;gap:12px;font-size:var(--fs-3);color:var(--muted);}
 .sim-input label b{font-family:'IBM Plex Mono',monospace;color:var(--ink);min-width:56px;text-align:right;}
 .sim-input input[type=range]{flex:1;}
-.sim-hint{font-size:11px;color:var(--dim);margin-top:5px;}
+.sim-hint{font-size:var(--fs-2);color:var(--dim);margin-top:5px;}
 .sim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin-top:16px;}
 .sim-card{background:rgba(133,178,224,0.06);border:1px solid var(--line);border-radius:7px;padding:11px 13px;}
-.sim-card .sk{font-size:10.5px;color:var(--dim);letter-spacing:0.02em;}
+.sim-card .sk{font-size:var(--fs-1);color:var(--dim);letter-spacing:0.02em;}
 .sim-card .sv{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;margin-top:4px;line-height:1.15;}
-.sim-card .sv span{font-size:11px;color:var(--dim);margin-left:3px;font-weight:400;}
-.sim-card .sn{font-size:10.5px;color:var(--dim);margin-top:5px;line-height:1.45;}
-.sim-note{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:14px;
+.sim-card .sv span{font-size:var(--fs-2);color:var(--dim);margin-left:3px;font-weight:400;}
+.sim-card .sn{font-size:var(--fs-1);color:var(--dim);margin-top:5px;line-height:1.45;}
+.sim-note{font-size:var(--fs-2);color:var(--dim);line-height:1.6;margin-top:14px;
   padding-top:11px;border-top:1px dashed var(--line);}
 .sim-note b{color:var(--muted);}
 
@@ -361,25 +377,31 @@ td .n{font-family:'IBM Plex Mono',monospace;}
 /* ---------- 예시 데이터 배너 ---------- */
 .notice-banner{flex-shrink:0;display:flex;align-items:flex-start;gap:10px;
   background:rgba(224,166,63,0.13);border-bottom:1px solid rgba(224,166,63,0.3);
-  padding:10px 18px;font-size:12px;line-height:1.6;color:var(--muted);}
-.nb-icon{color:var(--mid);font-size:13px;flex-shrink:0;}
+  padding:10px 18px;font-size:var(--fs-3);line-height:1.6;color:var(--muted);}
+.nb-icon{color:var(--mid);font-size:var(--fs-4);flex-shrink:0;}
 .nb-text{flex:1;} .nb-text b{color:var(--ink);}
-.nb-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;
+.nb-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:var(--fs-5);
   padding:0 4px;flex-shrink:0;}
 .nb-close:hover{color:var(--ink);}
 
 /* ---------- 기본/고급 모드 ---------- */
 .mode-toggle{display:flex;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;}
 .mode-btn{background:transparent;border:none;color:var(--dim);font-family:inherit;
-  font-size:12px;padding:6px 14px;cursor:pointer;transition:all .15s;}
-.mode-btn.on{background:var(--good);color:#06251A;font-weight:600;}
-.mode-hint{font-size:12px;color:var(--dim);line-height:1.6;
+  font-size:var(--fs-3);padding:6px 14px;cursor:pointer;transition:all .15s;}
+.mode-btn.on{background:var(--accent);color:#062430;font-weight:600;}
+.mode-hint{font-size:var(--fs-3);color:var(--dim);line-height:1.6;
   background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:13px 16px;}
 .mode-hint b{color:var(--muted);}
 
+/* ---------- 분석 탭 도입부 요약 ---------- */
+.tab-intro{font-size:var(--fs-5);color:var(--muted);line-height:1.7;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:8px;
+  padding:14px 17px;margin-bottom:24px;}
+.tab-intro b{color:var(--ink);}
+
 /* ---------- 지도 필터 드롭다운 ---------- */
 #filterSelect{width:100%;background:#fff;color:#3B4551;border:1px solid #E1E6EC;
-  border-radius:5px;padding:7px 9px;font-size:12.5px;font-family:inherit;cursor:pointer;min-width:150px;}
+  border-radius:5px;padding:7px 9px;font-size:var(--fs-3);font-family:inherit;cursor:pointer;min-width:150px;}
 .filter-panel{max-width:190px;}
 
 /* ---------- 다크 지도 ---------- */
@@ -393,12 +415,12 @@ td .n{font-family:'IBM Plex Mono',monospace;}
 /* ---------- AI 분석 4구획 ---------- */
 .ai-sec{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);}
 .ai-sec:first-of-type{border-top:none;padding-top:0;}
-.ai-none{font-size:12.5px;color:var(--dim);margin-top:7px;}
+.ai-none{font-size:var(--fs-3);color:var(--dim);margin-top:7px;}
 
 /* ---------- 아코디언 ---------- */
 .sec-head.collapsible{cursor:pointer;user-select:none;position:relative;padding-right:22px;}
 .sec-head.collapsible:hover h2{color:var(--accent);}
-.acc-arrow{position:absolute;right:0;bottom:9px;color:var(--dim);font-size:12px;
+.acc-arrow{position:absolute;right:0;bottom:9px;color:var(--dim);font-size:var(--fs-3);
   transition:transform .22s ease;}
 section.closed .acc-arrow{transform:rotate(-90deg);}
 section.closed > *:not(.sec-head){display:none !important;}
@@ -406,7 +428,7 @@ section.closed > *:not(.sec-head){display:none !important;}
 /* ---------- 순위 변화 그래프 ---------- */
 .trend-box{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;
   padding:14px 16px;margin-bottom:18px;}
-.trend-note{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:8px;
+.trend-note{font-size:var(--fs-2);color:var(--dim);line-height:1.6;margin-top:8px;
   padding-top:9px;border-top:1px dashed var(--line);}
 
 /* ---------- 인쇄(PDF) ---------- */
@@ -425,65 +447,65 @@ section.closed > *:not(.sec-head){display:none !important;}
 
 
 /* ---------- 지표 중복 보정 ---------- */
-.decorr{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12.5px;
+.decorr{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:var(--fs-3);
   color:var(--muted);cursor:pointer;flex-wrap:wrap;}
 .decorr input{accent-color:var(--good);width:15px;height:15px;cursor:pointer;}
-.decorr em{font-style:normal;font-size:11.5px;color:var(--dim);}
+.decorr em{font-style:normal;font-size:var(--fs-2);color:var(--dim);}
 .corr-box{margin-top:11px;background:var(--bg-2);border:1px solid var(--line);
   border-radius:8px;padding:13px 15px;}
-.corr-title{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;
+.corr-title{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-1);letter-spacing:0.14em;
   text-transform:uppercase;color:var(--dim);margin-bottom:8px;}
-.corr-row{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;
+.corr-row{display:flex;justify-content:space-between;gap:12px;font-size:var(--fs-3);
   color:var(--ink);padding:4px 0;}
 .corr-r{font-family:'IBM Plex Mono',monospace;font-weight:600;}
-.corr-note{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:10px;
+.corr-note{font-size:var(--fs-2);color:var(--dim);line-height:1.6;margin-top:10px;
   padding-top:9px;border-top:1px dashed var(--line);}
 
 
 /* ---------- 데이터 연동 상태 ---------- */
 .data-panel{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:15px 17px;}
 .ds-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
-  padding-bottom:11px;margin-bottom:11px;border-bottom:1px dashed var(--line);font-size:13px;color:var(--muted);}
-.ds-head b{color:var(--good);font-family:'IBM Plex Mono',monospace;font-size:15px;}
+  padding-bottom:11px;margin-bottom:11px;border-bottom:1px dashed var(--line);font-size:var(--fs-4);color:var(--muted);}
+.ds-head b{color:var(--good);font-family:'IBM Plex Mono',monospace;font-size:var(--fs-5);}
 .ds-list{display:flex;flex-direction:column;gap:2px;}
 .ds-row{display:grid;grid-template-columns:96px 74px 1fr;grid-template-areas:'nm badge src' '. . note';
-  gap:4px 10px;align-items:center;font-size:12px;padding:6px 0;
+  gap:4px 10px;align-items:center;font-size:var(--fs-3);padding:6px 0;
   border-bottom:1px solid rgba(133,178,224,0.06);}
 .ds-row:last-child{border-bottom:none;}
 .ds-nm{grid-area:nm;color:var(--ink);font-weight:500;}
-.ds-src{grid-area:src;color:var(--muted);font-size:11.5px;}
-.ds-note{grid-area:note;color:var(--dim);font-size:11px;line-height:1.5;}
-.ds{grid-area:badge;font-size:10.5px;font-weight:600;padding:3px 7px;border-radius:4px;text-align:center;}
+.ds-src{grid-area:src;color:var(--muted);font-size:var(--fs-2);}
+.ds-note{grid-area:note;color:var(--dim);font-size:var(--fs-2);line-height:1.5;}
+.ds{grid-area:badge;font-size:var(--fs-1);font-weight:600;padding:3px 7px;border-radius:4px;text-align:center;}
 .ds.real{background:rgba(79,191,135,0.16);color:var(--good);}
 .ds.est{background:rgba(224,166,63,0.14);color:var(--mid);}
 .ds.fail{background:rgba(210,99,74,0.16);color:var(--bad);}
-.ds-foot{font-size:11px;color:var(--dim);line-height:1.6;margin-top:12px;
+.ds-foot{font-size:var(--fs-2);color:var(--dim);line-height:1.6;margin-top:12px;
   padding-top:10px;border-top:1px dashed var(--line);}
 
 
 /* ---------- 계산 수식 ---------- */
 .formula-box{background:#08152A;border:1px solid var(--line);border-radius:8px;
   padding:14px 16px;margin-bottom:12px;}
-.fm-line{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);
+.fm-line{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-3);color:var(--accent);
   padding-bottom:10px;margin-bottom:10px;border-bottom:1px dashed var(--line);}
 .fm-calc{display:flex;flex-direction:column;gap:3px;}
 .fm-term{display:grid;grid-template-columns:100px 40px 14px 52px 14px 1fr;gap:6px;
-  align-items:center;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);}
-.fm-nm{color:var(--ink);font-family:'Inter',sans-serif;font-size:12px;}
+  align-items:center;font-family:'IBM Plex Mono',monospace;font-size:var(--fs-2);color:var(--muted);}
+.fm-nm{color:var(--ink);font-family:'Inter',sans-serif;font-size:var(--fs-3);}
 .fm-num,.fm-w{text-align:right;}
 .fm-op{color:var(--dim);text-align:center;}
 .fm-part{color:var(--ink);font-weight:600;}
 .fm-sum{grid-template-columns:100px 1fr;border-top:1px dashed var(--line);
   margin-top:6px;padding-top:8px;}
-.fm-sum .fm-part{color:var(--good);font-size:14px;}
-.fm-note{font-size:11px;color:var(--dim);line-height:1.6;margin-top:11px;
+.fm-sum .fm-part{color:var(--good);font-size:var(--fs-5);}
+.fm-note{font-size:var(--fs-2);color:var(--dim);line-height:1.6;margin-top:11px;
   padding-top:9px;border-top:1px dashed var(--line);}
 
 /* ---------- 냉각 방식 선택 ---------- */
 .cool-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:12px;
-  font-size:12.5px;color:var(--muted);}
+  font-size:var(--fs-3);color:var(--muted);}
 .cool-btn{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);
-  border-radius:999px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;
+  border-radius:999px;padding:6px 12px;font-size:var(--fs-3);cursor:pointer;font-family:inherit;
   transition:all .15s;}
 .cool-btn:hover{border-color:var(--accent);}
 .cool-btn.on{background:var(--accent);border-color:var(--accent);color:#062430;font-weight:600;}
@@ -493,23 +515,23 @@ section.closed > *:not(.sec-head){display:none !important;}
 .site-filter{left:14px;top:112px;padding:9px 11px;display:flex;gap:6px;
   align-items:center;flex-wrap:wrap;max-width:230px;}
 .site-filter select{background:#fff;color:#3B4551;border:1px solid #E1E6EC;border-radius:5px;
-  padding:5px 8px;font-size:11.5px;font-family:inherit;cursor:pointer;max-width:105px;}
-.sf-count{font-size:10.5px;color:#7A8798;width:100%;}
+  padding:5px 8px;font-size:var(--fs-2);font-family:inherit;cursor:pointer;max-width:105px;}
+.sf-count{font-size:var(--fs-1);color:#7A8798;width:100%;}
 
 @media(max-width:820px){
   .site-filter{top:auto;bottom:82px;left:10px;right:64px;max-width:none;}
-  .fm-term{grid-template-columns:82px 34px 12px 44px 12px 1fr;font-size:10.5px;}
+  .fm-term{grid-template-columns:82px 34px 12px 44px 12px 1fr;font-size:var(--fs-1);}
 
   .ds-row{grid-template-columns:80px 66px 1fr;}
 
-  .notice-banner{padding:8px 12px;font-size:11px;align-items:center;}
+  .notice-banner{padding:8px 12px;font-size:var(--fs-2);align-items:center;}
   .nb-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .nb-text .nb-long{display:none;}
   .filter-panel{max-width:none;}
   .mode-toggle{margin-left:auto;}
 
   .search-box{flex:1 1 auto;min-width:0;}
-  .search-box input{padding:7px 10px;font-size:12px;}
+  .search-box input{padding:7px 10px;font-size:var(--fs-3);}
   .bd-row{grid-template-columns:12px 1fr 46px;}
   .bd-calc{display:none;}
 
@@ -518,10 +540,10 @@ section.closed > *:not(.sec-head){display:none !important;}
   .ai-box{padding:14px 15px;}
 
   header{padding:9px 13px 0;}
-  .brand{font-size:15px;}
-  .hd-stats{gap:12px;} .hd-stats .st .n{font-size:13px;} .hd-stats .st .l{font-size:8px;}
-  .tab{padding:8px 11px;font-size:12.5px;}
-  .legend{padding:8px 10px;font-size:11px;left:10px;top:10px;}
+  .brand{font-size:var(--fs-5);}
+  .hd-stats{gap:12px;} .hd-stats .st .n{font-size:var(--fs-4);} .hd-stats .st .l{font-size:var(--fs-1);}
+  .tab{padding:8px 11px;font-size:var(--fs-3);}
+  .legend{padding:8px 10px;font-size:var(--fs-2);left:10px;top:10px;}
   .filter-panel{left:10px;right:64px;bottom:10px;max-width:none;}
   .zoom-ctrl{right:10px;bottom:10px;}
   #mapPane{flex-direction:column;}
@@ -530,8 +552,11 @@ section.closed > *:not(.sec-head){display:none !important;}
   .mpanel.open{height:56%;}
   .mpanel-in{width:100%;padding:16px;}
   .detail{grid-template-columns:1fr;}
-  .rank-row{grid-template-columns:26px 1fr 48px;}
-  .rank-row .bar{display:none;}
+  .rank-row{grid-template-columns:24px 1fr 34px 44px;gap:8px;min-height:44px;}
+  .rank-row .bar{display:block;}
+
+  .tab,.mini-btn,.chip,.pchip,.cool-btn,.mode-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
+  .sr{min-height:44px;}
   .scroll{padding:16px 13px 40px;}
 }
 </style>
@@ -559,10 +584,10 @@ section.closed > *:not(.sec-head){display:none !important;}
 
 <div class="notice-banner" id="dataBanner">
   <span class="nb-icon">ⓘ</span>
-  <span class="nb-text"><b>8개 지표 중 7개는 공개 통계 원자료를 사용합니다.</b>
-    전기요금·재생에너지·정전시간·인터넷속도·재해위험·땅값·기온은 실제 공표값을 정규화했고,
-    냉각 수자원만 배정값입니다.<span class="nb-long">
-    비교 탭의 출처 표에서 항목별 단위와 구분을 확인할 수 있습니다.</span></span>
+  <span class="nb-text"><b>고교 심화 탐구용 학습 모델입니다.</b> 실제 투자 판단에는 쓸 수 없습니다.
+    8개 지표 중 실측 자료는 기온·탄소집약도 2개이고, 나머지 6개(전기요금·재생에너지·전력망·인터넷속도·재해위험·땅값)는
+    공개 통계를 참고해 0~100으로 배정한 값입니다.<span class="nb-long">
+    비교 탭의 출처 표에서 항목별로 실측/배정값 구분을 확인할 수 있습니다.</span></span>
   <button class="nb-close" id="nbClose" aria-label="안내 닫기">✕</button>
 </div>
 
@@ -582,8 +607,8 @@ section.closed > *:not(.sec-head){display:none !important;}
     <div class="ov zoom-ctrl">
       <button id="zoomIn" aria-label="지도 확대">+</button>
       <button id="zoomOut" aria-label="지도 축소">−</button>
-      <button id="zoomReset" style="font-size:14px" aria-label="처음 화면으로">⟲</button>
-      <button id="mapStyleBtn" style="font-size:14px" aria-label="지도 스타일 바꾸기">◧</button>
+      <button id="zoomReset" aria-label="처음 화면으로"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13 2.5v3h-3"/></svg></button>
+      <button id="mapStyleBtn" aria-label="지도 스타일 바꾸기"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2 2 5.5 8 9l6-3.5L8 2Z"/><path d="M2 9l6 3.5L14 9"/></svg></button>
     </div>
     <div class="ov map-notice" id="mapNotice">
       <b>지도 배경을 불러오지 못했습니다.</b><br>
@@ -596,7 +621,7 @@ section.closed > *:not(.sec-head){display:none !important;}
   <div class="mpanel" id="mpanel">
     <div class="mpanel-in" id="mpanelIn">
       <div class="placeholder">
-        <div class="glyph">◌</div>
+        <div class="glyph"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg></div>
         <p>마커를 누르면 해당 데이터센터의 입지 평가가 표시됩니다.<br><br>
         지도의 <b>아무 곳이나 길게 누르면</b> 그 지점에 데이터센터를 짓는 것이 적합한지 평가해 줍니다.
         (PC에서는 마우스 오른쪽 클릭)<br><br>
@@ -609,6 +634,11 @@ section.closed > *:not(.sec-head){display:none !important;}
 
 <!-- 분석 -->
 <div class="pane" id="analysisPane"><div class="scroll"><div class="inner">
+  <div class="tab-intro">
+    이 탭에서는 <b>목적(사용 목적)</b>에 맞춰 8개 지표의 가중치를 정하고, 그 가중치로 계산한
+    <b>국가 순위·상세 점수</b>를 봅니다. 아래로 내리면 순서대로: 데이터 출처 → 목적/가중치 →
+    <b>국가 순위·상세 분석</b>(핵심) → 시뮬레이션 → 보고서 내보내기입니다.
+  </div>
   <section>
     <div class="sec-head"><h2>데이터 연동 상태</h2>
       <div class="note">어떤 값이 실측이고 어떤 값이 추정인지 표시합니다</div></div>
@@ -649,19 +679,19 @@ section.closed > *:not(.sec-head){display:none !important;}
   </section>
 
   <section>
-    <div class="sec-head"><h2>국가 순위</h2>
+    <div class="sec-head primary"><h2>국가 순위</h2>
       <div class="note">행을 누르면 아래에 상세 분석이 표시됩니다</div></div>
     <div class="rank-list" id="rankList"></div>
   </section>
 
   <section>
-    <div class="sec-head"><h2>AI 분석 의견</h2>
-      <div class="note">선택한 국가와 현재 가중치를 근거로 작성됩니다</div></div>
+    <div class="sec-head"><h2>자동 분석 요약</h2>
+      <div class="note">선택한 국가와 현재 가중치를 근거로, 규칙 기반 로직이 문장을 조립합니다 (LLM 미사용)</div></div>
     <div class="ai-box" id="aiBox"></div>
   </section>
 
   <section>
-    <div class="sec-head"><h2>상세 분석</h2>
+    <div class="sec-head primary"><h2>상세 분석</h2>
       <div class="note">각 항목의 점수 근거와 출처를 함께 표시합니다</div></div>
     <div class="detail" id="detail"></div>
   </section>
@@ -718,13 +748,16 @@ section.closed > *:not(.sec-head){display:none !important;}
   </section>
 
   <div class="disclaimer">
-    수록된 수치는 계산 구조를 확인하기 위한 <b>예시 값</b>입니다. 실제 보고서에 쓰려면
-    기온은 기상청·NOAA, 전력 단가는 IEA, 재생에너지 비율은 Ember·Our World in Data,
-    인터넷 속도는 Ookla, 재해 위험도는 WorldRiskIndex 자료로 교체해야 합니다.
+    이 프로젝트는 <b>학습용 모델</b>이며 실제 투자 판단에 사용할 수 없습니다.
+    8개 항목 중 <b>실측 자료는 기온·탄소집약도 2개</b>이고, 나머지 6개는 공개 통계를
+    참고해 배정한 값입니다. 실제 보고서에 쓰려면 기온은 기상청·NOAA, 전력 단가는 IEA,
+    재생에너지 비율은 Ember·Our World in Data, 인터넷 속도는 Ookla,
+    재해 위험도는 WorldRiskIndex 원자료로 교체해야 합니다.
   </div>
 </div></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+        integrity="sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 // 지도 타일 등 외부 리소스의 크로스오리진 잡음만 걸러내고, 코드 오류는 콘솔에 남긴다.
@@ -753,8 +786,12 @@ window.addEventListener('error', e=>{
     return false;
   }
 
-  // (3) 그 밖의 진짜 오류만 콘솔에 남긴다. 내용이 비어 있으면 무시한다.
-  if(!e.message) { e.preventDefault(); return false; }
+  // (3) 그 밖의 진짜 오류는 콘솔에 남긴다. 메시지가 비어도 위치 정보가 있으면
+  //     같은 origin 에서 난 진짜 오류일 수 있으므로 debug 로는 남겨 둔다.
+  if(!e.message){
+    if(e.filename || e.lineno) console.debug('[Atlas] 메시지 없는 오류:', (e.filename||'?')+':'+(e.lineno||'?'));
+    e.preventDefault(); return false;
+  }
   console.error('[Atlas] 오류:', e.message, (e.filename||'?')+':'+(e.lineno||'?'));
 }, true);
 
@@ -1236,6 +1273,9 @@ let liveTimer    = null;                // 실시간 갱신 타이머 핸들
 let liveState    = {s:'idle', at:null, msg:''};  // 실시간 갱신 상태
 
 const totalWeight = ()=> FKEYS.reduce((a,k)=>a+weights[k],0);
+/* weights 는 반드시 이 함수를 통해서만 바꾼다 — 값을 바꾸고 캐시를 무효화하는 걸
+   둘 다 잊지 않게 하나로 묶어 둔다. (직접 대입하면 순위가 갱신되지 않는 버그가 난다) */
+function setWeights(patch){ Object.assign(weights, patch); invalidateRank(); }
 /* ---- 기후 시나리오 ----
    IPCC 중간 경로(SSP2-4.5) 기준 전지구 평균기온 상승폭을 단순 적용한다.
    기온 외에 물 부족(건조지 가중)과 기상재해 위험도 함께 악화시킨다. */
@@ -1334,6 +1374,7 @@ function ranked(){
   return _rankCache;
 }
 const color = s => s>=85?'#4FBF87' : s>=65?'#E0A63F' : '#D2634A';
+const scoreTier = s => s>=85?'good' : s>=65?'mid' : 'bad';
 const stars = s => { const n=Math.round(s/20); return '★★★★★'.slice(0,n)+'☆☆☆☆☆'.slice(0,5-n); };
 
 /* ============ 3. 탭 ============ */
@@ -1494,14 +1535,24 @@ const GROUPS=[];
 
 // 묶음의 대표 점수는 소속 지점 중 최고점
 function groupScore(g){ return Math.max(...g.sites.map(x=>siteEval(x).total)); }
+function groupLabel(g){
+  const cos=[...new Set(g.sites.map(x=>x.co))].join(', ');
+  return `${cos} · ${g.sites[0].pl}, ${g.sites[0].ct} · 적합도 ${Math.round(groupScore(g))}점`;
+}
 function applyMarkerColor(g){
   const el=document.getElementById(`mk-${g.id}`);
-  if(el) el.style.color=color(groupScore(g));
+  if(!el) return;
+  const s=groupScore(g);
+  el.style.color=color(s);
+  el.classList.remove('tier-good','tier-mid','tier-bad');
+  el.classList.add('tier-'+scoreTier(s));
+  const outer=el.closest('.leaflet-marker-icon');
+  if(outer) outer.setAttribute('aria-label', groupLabel(g));
 }
 GROUPS.forEach(g=>{
   const n=g.sites.length;
-  const mk=L.marker([g.lat,g.lng],{icon:L.divIcon({className:'',iconSize:[16,16],iconAnchor:[8,8],
-    html:`<div class="dc-marker${n>1?' multi':''}" id="mk-${g.id}" style="color:${color(groupScore(g))}">
+  const mk=L.marker([g.lat,g.lng],{alt:groupLabel(g),icon:L.divIcon({className:'',iconSize:[16,16],iconAnchor:[8,8],
+    html:`<div class="dc-marker${n>1?' multi':''} tier-${scoreTier(groupScore(g))}" id="mk-${g.id}" style="color:${color(groupScore(g))}">
       <div class="ring2"></div><div class="ring"></div><div class="core"></div>
       ${n>1?`<span class="mk-count">${n}</span>`:''}</div>`})}).addTo(map);
   mk.on('click',()=>openGroup(g.id));
@@ -1575,9 +1626,9 @@ function renderLegend(){
   const b=document.getElementById('legendBody'), t=document.getElementById('legendTitle');
   if(filterMode==='off'){
     t.textContent='데이터센터 적합도';
-    b.innerHTML=`<div class="row"><span class="dot" style="background:#3EA76B"></span> 85 – 100 · 매우 우수</div>
-      <div class="row"><span class="dot" style="background:#D9962C"></span> 65 – 84 · 양호</div>
-      <div class="row"><span class="dot" style="background:#C94830"></span> 65 미만 · 미흡</div>`;
+    b.innerHTML=`<div class="row"><span class="dot tier-good" style="background:#3EA76B"></span> 85 – 100 · 매우 우수</div>
+      <div class="row"><span class="dot tier-mid" style="background:#D9962C"></span> 65 – 84 · 양호</div>
+      <div class="row"><span class="dot tier-bad" style="background:#C94830"></span> 65 미만 · 미흡</div>`;
   }else{
     t.textContent=FILTERS.find(f=>f.id===filterMode).l+' 분포';
     b.innerHTML=`<div class="scale">${[40,50,60,70,80,90].map(v=>`<i style="background:${heat(v)}"></i>`).join('')}</div>
@@ -1830,7 +1881,7 @@ async function probeAt(ll){
   if(probeMarker) map.removeLayer(probeMarker);
   probeMarker=L.marker(ll,{icon:L.divIcon({className:'',iconSize:[18,18],iconAnchor:[9,9],
     html:'<div class="probe-pin"><div class="probe-core"></div><div class="probe-ring"></div></div>'})}).addTo(map);
-  mpanelIn.innerHTML='<div class="placeholder"><div class="glyph">◌</div><p>이 지점을 평가하는 중입니다…</p></div>';
+  mpanelIn.innerHTML='<div class="placeholder"><div class="glyph"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg></div><p>이 지점을 평가하는 중입니다…</p></div>';
   mpanel.classList.add('open');
   renderProbe(await evalPoint(ll.lat,ll.lng));
 }
@@ -1886,7 +1937,7 @@ function runSearch(q){
     x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)).slice(0,7);
   if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; return; }
   box.innerHTML=hits.map((h,i)=>
-    `<div class="sr" data-i="${i}"><span class="sr-nm">${esc(h.label)}</span><span class="sr-sub">${esc(h.sub)}</span></div>`).join('');
+    `<button type="button" class="sr" role="option" data-i="${i}"><span class="sr-nm">${esc(h.label)}</span><span class="sr-sub">${esc(h.sub)}</span></button>`).join('');
   box.style.display='block';
   box.querySelectorAll('.sr').forEach(el=>el.onclick=()=>{
     const h=hits[+el.dataset.i];
@@ -1966,7 +2017,10 @@ function restoreFromURL(){
   const p=new URLSearchParams(location.hash.slice(1));
   const w=p.get('w');
   if(w){ const v=w.split('-').map(Number);
-    if(v.length===FKEYS.length && v.every(x=>!isNaN(x))) FKEYS.forEach((k,i)=>weights[k]=v[i]); }
+    if(v.length===FKEYS.length && v.every(x=>!isNaN(x))){
+      const patch={}; FKEYS.forEach((k,i)=>patch[k]=v[i]); setWeights(patch);
+    }
+  }
   if(p.get('p') && PURPOSES.find(x=>x.id===p.get('p'))) activePurpose=p.get('p'); else activePurpose=null;
   if(p.get('e') && ERAS[p.get('e')]) era=p.get('e');
   if(p.get('mw')) itMW=Math.max(5,Math.min(300,+p.get('mw')||50));
@@ -2551,8 +2605,7 @@ function renderChips(){
   $('chips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
     const before=ranked().map(c=>c.n);
     activePurpose=b.dataset.p;
-    weights={...PURPOSES.find(p=>p.id===activePurpose).w};
-    invalidateRank();
+    setWeights(PURPOSES.find(p=>p.id===activePurpose).w);
     lastShift=shift(before,ranked().map(c=>c.n));
     renderChips(); syncWeights();
     refresh('weights');
@@ -2590,7 +2643,7 @@ function buildWeights(){
     r.addEventListener('input',()=>{
       const v=+r.value;
       if(weights[k]===v) return;
-      weights[k]=v;
+      setWeights({[k]:v});
       valueEls[k].textContent=v+'%';
       r.setAttribute('aria-valuenow',v); r.setAttribute('aria-valuetext',v+'퍼센트');
       if(activePurpose!==null){ activePurpose=null; renderChips(); }
@@ -2634,8 +2687,8 @@ const rankEls={};
 function buildRankList(){
   elRankList.innerHTML='';
   RANKED_SET.forEach(c=>{
-    const d=document.createElement('div');
-    d.className='rank-row'; d.dataset.n=c.n;
+    const d=document.createElement('button');
+    d.type='button'; d.className='rank-row'; d.dataset.n=c.n;
     d.innerHTML=`<div class="pos"></div>
       <div class="nm">${c.n}<em>${c.region}${c.dc?' · 운영 중':' · 신규 후보'}</em></div>
       <div class="bar"><i></i></div><div class="sc"></div>`;
@@ -2663,7 +2716,9 @@ function updateRankList(){
 }
 
 /* ---- 상세: 레이더는 선택이 바뀔 때만, 점수는 가중치마다 ---- */
-const SERIES_COLORS=['#4FBF87','#57C7E8','#E0A63F','#D2634A','#B18CE8'];
+/* 국가 비교용 구분색 — 적합도 등급색(초록/앰버/빨강)과 겹치지 않는 팔레트를 쓴다.
+   안 그러면 4번째로 고른 나라가 우연히 빨간 선으로 그려질 때 "나쁜 나라"로 오해할 수 있다. */
+const SERIES_COLORS=['#57C7E8','#8B7FE8','#5B8DEF','#4FC9C0','#C77DEE'];
 function radar(items,size=240){
   const cx=size/2,cy=size/2,R=size/2-36,n=FACTORS.length;
   const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/n;return [cx+Math.cos(a)*r,cy+Math.sin(a)*r];};
@@ -2679,7 +2734,7 @@ function radar(items,size=240){
   });
   FACTORS.forEach((f,i)=>{const[x,y]=pt(i,R+16);
     const an=Math.abs(x-cx)<6?'middle':(x>cx?'start':'end');
-    g+=`<text x="${x}" y="${y+4}" fill="#8FAECC" font-size="9.5" text-anchor="${an}">${f.label}</text>`;});
+    g+=`<text x="${x}" y="${y+4}" style="fill:var(--muted)" font-size="9.5" text-anchor="${an}">${f.label}</text>`;});
   return `<svg viewBox="0 0 ${size} ${size}" width="100%" style="max-width:${size}px">${g}</svg>`;
 }
 let dScore=null,dStars=null,dVerdict=null;
@@ -2802,7 +2857,7 @@ function renderRankTrend(){
   let g=`<line x1="${padL}" y1="${padT}" x2="${W-padR}" y2="${padT}" stroke="rgba(133,178,224,0.18)"/>`;
   labels.forEach((lb,i)=>{
     g+=`<line x1="${xs[i]}" y1="${padT}" x2="${xs[i]}" y2="${H-padB}" stroke="rgba(133,178,224,0.14)"/>`;
-    g+=`<text x="${xs[i]}" y="${H-9}" fill="#8FAECC" font-size="10.5" text-anchor="middle">${lb}</text>`;
+    g+=`<text x="${xs[i]}" y="${H-9}" style="fill:var(--muted)" font-size="10.5" text-anchor="middle">${lb}</text>`;
   });
   names.forEach((n,si)=>{
     const col=SERIES_COLORS[si%SERIES_COLORS.length], pts=rows[n];
@@ -3332,7 +3387,9 @@ $('repShare').onclick=async ()=>{
   setTimeout(()=>{ $('repShare').textContent='분석 결과 링크 복사'; },2200);
 };
 $('searchInput').addEventListener('input',e=>runSearch(e.target.value));
-$('searchInput').addEventListener('blur',()=>setTimeout(()=>{ $('searchResults').style.display='none'; },180));
+$('searchInput').addEventListener('blur',()=>setTimeout(()=>{
+  if(!$('searchResults').contains(document.activeElement)) $('searchResults').style.display='none';
+},180));
 $('searchInput').addEventListener('focus',e=>{ if(e.target.value.trim()) runSearch(e.target.value); });
 renderBreakdown(); renderSimulator();
 setupAccordion(); updateMarkerScale(); renderCorr(); renderDataPanel(); renderSiteFilter();

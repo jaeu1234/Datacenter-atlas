@@ -1,0 +1,31 @@
+name: Verify build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 순수 로직 테스트 (tests/run.js)
+        run: node tests/run.js
+
+      - name: 빌드 (src/ -> index.html, dist/)
+        run: node build.js
+
+      - name: 빌드 결과가 커밋된 파일과 일치하는지 확인
+        run: |
+          if ! git diff --quiet -- index.html dist/datacenter-atlas.html; then
+            echo "::error::index.html / dist/datacenter-atlas.html 가 src/ 최신 상태와 다릅니다. 커밋 전에 'node build.js' 를 실행하세요."
+            git diff --stat -- index.html dist/datacenter-atlas.html
+            exit 1
+          fi

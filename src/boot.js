@@ -110,7 +110,9 @@ $('repShare').onclick=async ()=>{
   setTimeout(()=>{ $('repShare').textContent='분석 결과 링크 복사'; },2200);
 };
 $('searchInput').addEventListener('input',e=>runSearch(e.target.value));
-$('searchInput').addEventListener('blur',()=>setTimeout(()=>{ $('searchResults').style.display='none'; },180));
+$('searchInput').addEventListener('blur',()=>setTimeout(()=>{
+  if(!$('searchResults').contains(document.activeElement)) $('searchResults').style.display='none';
+},180));
 $('searchInput').addEventListener('focus',e=>{ if(e.target.value.trim()) runSearch(e.target.value); });
 renderBreakdown(); renderSimulator();
 setupAccordion(); updateMarkerScale(); renderCorr(); renderDataPanel(); renderSiteFilter();

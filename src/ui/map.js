@@ -144,14 +144,24 @@ const GROUPS=[];
 
 // 묶음의 대표 점수는 소속 지점 중 최고점
 function groupScore(g){ return Math.max(...g.sites.map(x=>siteEval(x).total)); }
+function groupLabel(g){
+  const cos=[...new Set(g.sites.map(x=>x.co))].join(', ');
+  return `${cos} · ${g.sites[0].pl}, ${g.sites[0].ct} · 적합도 ${Math.round(groupScore(g))}점`;
+}
 function applyMarkerColor(g){
   const el=document.getElementById(`mk-${g.id}`);
-  if(el) el.style.color=color(groupScore(g));
+  if(!el) return;
+  const s=groupScore(g);
+  el.style.color=color(s);
+  el.classList.remove('tier-good','tier-mid','tier-bad');
+  el.classList.add('tier-'+scoreTier(s));
+  const outer=el.closest('.leaflet-marker-icon');
+  if(outer) outer.setAttribute('aria-label', groupLabel(g));
 }
 GROUPS.forEach(g=>{
   const n=g.sites.length;
-  const mk=L.marker([g.lat,g.lng],{icon:L.divIcon({className:'',iconSize:[16,16],iconAnchor:[8,8],
-    html:`<div class="dc-marker${n>1?' multi':''}" id="mk-${g.id}" style="color:${color(groupScore(g))}">
+  const mk=L.marker([g.lat,g.lng],{alt:groupLabel(g),icon:L.divIcon({className:'',iconSize:[16,16],iconAnchor:[8,8],
+    html:`<div class="dc-marker${n>1?' multi':''} tier-${scoreTier(groupScore(g))}" id="mk-${g.id}" style="color:${color(groupScore(g))}">
       <div class="ring2"></div><div class="ring"></div><div class="core"></div>
       ${n>1?`<span class="mk-count">${n}</span>`:''}</div>`})}).addTo(map);
   mk.on('click',()=>openGroup(g.id));
@@ -225,9 +235,9 @@ function renderLegend(){
   const b=document.getElementById('legendBody'), t=document.getElementById('legendTitle');
   if(filterMode==='off'){
     t.textContent='데이터센터 적합도';
-    b.innerHTML=`<div class="row"><span class="dot" style="background:#3EA76B"></span> 85 – 100 · 매우 우수</div>
-      <div class="row"><span class="dot" style="background:#D9962C"></span> 65 – 84 · 양호</div>
-      <div class="row"><span class="dot" style="background:#C94830"></span> 65 미만 · 미흡</div>`;
+    b.innerHTML=`<div class="row"><span class="dot tier-good" style="background:#3EA76B"></span> 85 – 100 · 매우 우수</div>
+      <div class="row"><span class="dot tier-mid" style="background:#D9962C"></span> 65 – 84 · 양호</div>
+      <div class="row"><span class="dot tier-bad" style="background:#C94830"></span> 65 미만 · 미흡</div>`;
   }else{
     t.textContent=FILTERS.find(f=>f.id===filterMode).l+' 분포';
     b.innerHTML=`<div class="scale">${[40,50,60,70,80,90].map(v=>`<i style="background:${heat(v)}"></i>`).join('')}</div>
@@ -480,7 +490,7 @@ async function probeAt(ll){
   if(probeMarker) map.removeLayer(probeMarker);
   probeMarker=L.marker(ll,{icon:L.divIcon({className:'',iconSize:[18,18],iconAnchor:[9,9],
     html:'<div class="probe-pin"><div class="probe-core"></div><div class="probe-ring"></div></div>'})}).addTo(map);
-  mpanelIn.innerHTML='<div class="placeholder"><div class="glyph">◌</div><p>이 지점을 평가하는 중입니다…</p></div>';
+  mpanelIn.innerHTML='<div class="placeholder"><div class="glyph"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg></div><p>이 지점을 평가하는 중입니다…</p></div>';
   mpanel.classList.add('open');
   renderProbe(await evalPoint(ll.lat,ll.lng));
 }
@@ -536,7 +546,7 @@ function runSearch(q){
     x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)).slice(0,7);
   if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; return; }
   box.innerHTML=hits.map((h,i)=>
-    `<div class="sr" data-i="${i}"><span class="sr-nm">${esc(h.label)}</span><span class="sr-sub">${esc(h.sub)}</span></div>`).join('');
+    `<button type="button" class="sr" role="option" data-i="${i}"><span class="sr-nm">${esc(h.label)}</span><span class="sr-sub">${esc(h.sub)}</span></button>`).join('');
   box.style.display='block';
   box.querySelectorAll('.sr').forEach(el=>el.onclick=()=>{
     const h=hits[+el.dataset.i];
@@ -616,7 +626,10 @@ function restoreFromURL(){
   const p=new URLSearchParams(location.hash.slice(1));
   const w=p.get('w');
   if(w){ const v=w.split('-').map(Number);
-    if(v.length===FKEYS.length && v.every(x=>!isNaN(x))) FKEYS.forEach((k,i)=>weights[k]=v[i]); }
+    if(v.length===FKEYS.length && v.every(x=>!isNaN(x))){
+      const patch={}; FKEYS.forEach((k,i)=>patch[k]=v[i]); setWeights(patch);
+    }
+  }
   if(p.get('p') && PURPOSES.find(x=>x.id===p.get('p'))) activePurpose=p.get('p'); else activePurpose=null;
   if(p.get('e') && ERAS[p.get('e')]) era=p.get('e');
   if(p.get('mw')) itMW=Math.max(5,Math.min(300,+p.get('mw')||50));

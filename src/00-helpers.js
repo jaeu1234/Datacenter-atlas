@@ -25,8 +25,12 @@ window.addEventListener('error', e=>{
     return false;
   }
 
-  // (3) 그 밖의 진짜 오류만 콘솔에 남긴다. 내용이 비어 있으면 무시한다.
-  if(!e.message) { e.preventDefault(); return false; }
+  // (3) 그 밖의 진짜 오류는 콘솔에 남긴다. 메시지가 비어도 위치 정보가 있으면
+  //     같은 origin 에서 난 진짜 오류일 수 있으므로 debug 로는 남겨 둔다.
+  if(!e.message){
+    if(e.filename || e.lineno) console.debug('[Atlas] 메시지 없는 오류:', (e.filename||'?')+':'+(e.lineno||'?'));
+    e.preventDefault(); return false;
+  }
   console.error('[Atlas] 오류:', e.message, (e.filename||'?')+':'+(e.lineno||'?'));
 }, true);
 

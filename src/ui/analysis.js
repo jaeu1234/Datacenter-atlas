@@ -12,8 +12,7 @@ function renderChips(){
   $('chips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
     const before=ranked().map(c=>c.n);
     activePurpose=b.dataset.p;
-    weights={...PURPOSES.find(p=>p.id===activePurpose).w};
-    invalidateRank();
+    setWeights(PURPOSES.find(p=>p.id===activePurpose).w);
     lastShift=shift(before,ranked().map(c=>c.n));
     renderChips(); syncWeights();
     refresh('weights');
@@ -51,7 +50,7 @@ function buildWeights(){
     r.addEventListener('input',()=>{
       const v=+r.value;
       if(weights[k]===v) return;
-      weights[k]=v;
+      setWeights({[k]:v});
       valueEls[k].textContent=v+'%';
       r.setAttribute('aria-valuenow',v); r.setAttribute('aria-valuetext',v+'퍼센트');
       if(activePurpose!==null){ activePurpose=null; renderChips(); }
@@ -95,8 +94,8 @@ const rankEls={};
 function buildRankList(){
   elRankList.innerHTML='';
   RANKED_SET.forEach(c=>{
-    const d=document.createElement('div');
-    d.className='rank-row'; d.dataset.n=c.n;
+    const d=document.createElement('button');
+    d.type='button'; d.className='rank-row'; d.dataset.n=c.n;
     d.innerHTML=`<div class="pos"></div>
       <div class="nm">${c.n}<em>${c.region}${c.dc?' · 운영 중':' · 신규 후보'}</em></div>
       <div class="bar"><i></i></div><div class="sc"></div>`;
@@ -124,7 +123,9 @@ function updateRankList(){
 }
 
 /* ---- 상세: 레이더는 선택이 바뀔 때만, 점수는 가중치마다 ---- */
-const SERIES_COLORS=['#4FBF87','#57C7E8','#E0A63F','#D2634A','#B18CE8'];
+/* 국가 비교용 구분색 — 적합도 등급색(초록/앰버/빨강)과 겹치지 않는 팔레트를 쓴다.
+   안 그러면 4번째로 고른 나라가 우연히 빨간 선으로 그려질 때 "나쁜 나라"로 오해할 수 있다. */
+const SERIES_COLORS=['#57C7E8','#8B7FE8','#5B8DEF','#4FC9C0','#C77DEE'];
 function radar(items,size=240){
   const cx=size/2,cy=size/2,R=size/2-36,n=FACTORS.length;
   const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/n;return [cx+Math.cos(a)*r,cy+Math.sin(a)*r];};
@@ -140,7 +141,7 @@ function radar(items,size=240){
   });
   FACTORS.forEach((f,i)=>{const[x,y]=pt(i,R+16);
     const an=Math.abs(x-cx)<6?'middle':(x>cx?'start':'end');
-    g+=`<text x="${x}" y="${y+4}" fill="#8FAECC" font-size="9.5" text-anchor="${an}">${f.label}</text>`;});
+    g+=`<text x="${x}" y="${y+4}" style="fill:var(--muted)" font-size="9.5" text-anchor="${an}">${f.label}</text>`;});
   return `<svg viewBox="0 0 ${size} ${size}" width="100%" style="max-width:${size}px">${g}</svg>`;
 }
 let dScore=null,dStars=null,dVerdict=null;
@@ -263,7 +264,7 @@ function renderRankTrend(){
   let g=`<line x1="${padL}" y1="${padT}" x2="${W-padR}" y2="${padT}" stroke="rgba(133,178,224,0.18)"/>`;
   labels.forEach((lb,i)=>{
     g+=`<line x1="${xs[i]}" y1="${padT}" x2="${xs[i]}" y2="${H-padB}" stroke="rgba(133,178,224,0.14)"/>`;
-    g+=`<text x="${xs[i]}" y="${H-9}" fill="#8FAECC" font-size="10.5" text-anchor="middle">${lb}</text>`;
+    g+=`<text x="${xs[i]}" y="${H-9}" style="fill:var(--muted)" font-size="10.5" text-anchor="middle">${lb}</text>`;
   });
   names.forEach((n,si)=>{
     const col=SERIES_COLORS[si%SERIES_COLORS.length], pts=rows[n];
