@@ -411,6 +411,12 @@ const WB_INDICATORS = [
     label:'토지 비용', unit:'USD', org:'World Bank',
     desc:'1인당 GDP — 소득이 높을수록 토지·건설비가 비싸다는 대리 지표',
     toScore: v => Math.round(Math.max(5, Math.min(100, 100 - (v / 70000) * 88))) },
+
+  { key:'water', code:'ER.H2O.FWST.ZS',
+    label:'냉각 수자원', unit:'% (취수량/가용 담수)', org:'World Bank',
+    desc:'물 스트레스 수준 — 가용 담수 대비 취수 비율이 낮을수록 냉각용수 확보가 유리',
+    // 물 스트레스 0% → 100점, 100% 이상(취수량이 가용량을 넘는 극심한 물부족) → 최저점
+    toScore: v => Math.round(Math.max(3, Math.min(100, 100 - v))) },
 ];
 
 // 연동 상태: key → {status, year, n, note}
@@ -419,7 +425,7 @@ const dataStatus = {
   power:{status:'est',   src:'IEA·GlobalPetrolPrices', note:'무료 API 없음 — 공개 통계를 참고한 추정값'},
   renew:{status:'est',   src:'World Bank', note:'아직 불러오지 않음'},
   grid :{status:'est',   src:'World Bank', note:'아직 불러오지 않음'},
-  water:{status:'est',   src:'WRI Aqueduct', note:'무료 API 없음 — 물 스트레스 등급 기반 추정값'},
+  water:{status:'est',   src:'World Bank', note:'아직 불러오지 않음'},
   net  :{status:'est',   src:'World Bank', note:'아직 불러오지 않음'},
   risk :{status:'est',   src:'WorldRiskIndex', note:'무료 API 없음 — 보고서 수치 기반 추정값'},
   land :{status:'est',   src:'World Bank', note:'아직 불러오지 않음'},
@@ -440,6 +446,16 @@ async function fetchWorldBank(code){
     }
   });
   return out;
+}
+// World Bank 는 여러 지표를 연달아 요청하면 가끔 한두 개만 일시적으로 실패한다
+// (레이트리밋 추정). 한 번 더 시도해 볼 가치가 있어 짧게 재시도한다.
+async function fetchWorldBankRetry(code, tries=2){
+  let lastErr;
+  for(let i=0;i<tries;i++){
+    try{ return await fetchWorldBank(code); }
+    catch(e){ lastErr=e; if(i<tries-1) await new Promise(r=>setTimeout(r, 500*(i+1))); }
+  }
+  throw lastErr;
 }
 
 // 최근 1년 관측 기록에서 국가별 연평균 기온을 실제로 받아온다
@@ -516,8 +532,8 @@ async function syncRealData(){
     // (2) World Bank 지표
     for(const ind of WB_INDICATORS){
       try{
-        let map = await fetchWorldBank(ind.code);
-        if(Object.keys(map).length < 10 && ind.alt) map = await fetchWorldBank(ind.alt);
+        let map = await fetchWorldBankRetry(ind.code);
+        if(Object.keys(map).length < 10 && ind.alt) map = await fetchWorldBankRetry(ind.alt);
 
         let applied=0, years=[];
         RANKED_SET.forEach(c=>{

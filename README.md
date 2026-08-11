@@ -68,6 +68,10 @@ GitHub Pages로 배포하려면 저장소 **Settings → Pages → Source: main 
 
 총점 = Σ(항목 점수 × 가중치) ÷ Σ(가중치)
 
+위 표는 기본값 기준입니다. 분석 탭의 "공개 데이터 불러오기"를 누르면 기후·재생에너지·전력망 안정성·
+냉각 수자원·인터넷 인프라·토지 비용 6개는 World Bank·Open-Meteo 실측값으로 바뀝니다. 전력 비용·재해
+위험 2개는 무료로 쓸 수 있는 공개 API가 없어 추정값으로 남습니다.
+
 탄소배출 계산에는 재생에너지 비율이 아니라 **실제 계통 탄소집약도(gCO₂/kWh)** 를 사용합니다.
 재생에너지 비율만으로 추정하면 원자력 비중이 큰 프랑스·스웨덴·한국이 크게 왜곡되기 때문입니다.
 
@@ -91,8 +95,10 @@ IPCC 중간 경로(SSP2-4.5)를 참고해 2035년 +1.1℃, 2050년 +2.2℃를 �
 
 이 프로젝트는 **학습용 모델**입니다. 실제 투자 판단에 사용할 수 없습니다.
 
-- 8개 항목 중 **실측 자료는 기온과 탄소집약도 2개**입니다. 나머지 6개는 공개 통계를 참고해
-  0~100으로 배정한 값이며, 원자료를 그대로 정규화한 것이 아닙니다.
+- 기본값은 8개 항목 모두 공개 통계를 참고해 0~100으로 배정한 값이며, 원자료를 그대로
+  정규화한 것이 아닙니다. "공개 데이터 불러오기"를 누르면 6개(기후·재생에너지·전력망 안정성·
+  냉각 수자원·인터넷 인프라·토지 비용)는 **실측**으로 바뀝니다. 전력 비용·재해 위험 2개는
+  무료 API가 없어 계속 추정값입니다.
 - 지도 색상은 **국가 단위 근사치**입니다. 같은 나라 안에서 지점을 바꿔도 기온 외에는 차이가 작습니다.
 - 데이터센터 126곳은 대표 캠퍼스만 수록한 것으로, 전 세계 약 11,000개 중 일부입니다.
 - 시뮬레이터의 PUE·전력 단가는 점수에서 역산한 추정값입니다.
@@ -106,7 +112,7 @@ IPCC 중간 경로(SSP2-4.5)를 참고해 2035년 +1.1℃, 2050년 +2.2℃를 �
 | 기온 | [Open-Meteo](https://open-meteo.com/) · NOAA |
 | 전력 가격 | [IEA](https://www.iea.org/) |
 | 재생에너지·탄소집약도 | [Ember](https://ember-energy.org/) · Our World in Data |
-| 수자원 | [WRI Aqueduct](https://www.wri.org/aqueduct) |
+| 수자원 | [WRI Aqueduct](https://www.wri.org/aqueduct) · [World Bank](https://data.worldbank.org/) (물 스트레스 실측 연동) |
 | 인터넷 | [Ookla Speedtest Global Index](https://www.speedtest.net/global-index) |
 | 재해 위험 | [WorldRiskReport](https://weltrisikobericht.de/) |
 | 경제 지표 | [World Bank](https://data.worldbank.org/) |
