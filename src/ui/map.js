@@ -286,11 +286,11 @@ function siteVisible(x){
 function applySiteFilter(){
   let shown=0;
   GROUPS.forEach(g=>{
-    const vis=g.sites.some(siteVisible);
+    const visSites=g.sites.filter(siteVisible), vis=visSites.length>0;
     const mk=markers[g.id];
     if(vis && !map.hasLayer(mk)) mk.addTo(map);
     if(!vis && map.hasLayer(mk)) map.removeLayer(mk);
-    if(vis) shown += g.sites.filter(siteVisible).length;
+    shown += visSites.length;
   });
   const el=document.getElementById('siteFilterCount');
   if(el) el.textContent = (coFilter==='all'&&regionFilter==='all')

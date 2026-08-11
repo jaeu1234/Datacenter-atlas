@@ -6,7 +6,7 @@ const LIVE_BATCH=40;
 async function fetchBatch(items){
   const lat=items.map(c=>c.lat.toFixed(3)).join(',');
   const lng=items.map(c=>c.lng.toFixed(3)).join(',');
-  const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m`);
+  const res=await fetchTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m`);
   if(!res.ok) throw new Error('HTTP '+res.status);
   let d=await res.json();
   if(!Array.isArray(d)) d=[d];
@@ -15,7 +15,12 @@ async function fetchBatch(items){
     if(typeof t==='number'&&items[i]){ items[i].liveC=t; items[i].tempLive=tempScore(t); }
   });
 }
+let liveFetching=false;
 async function fetchLive(){
+  // 버튼 연타나 10분 타이머와 수동 갱신이 겹치면 여러 요청이 동시에 날아가고,
+  // 늦게 도착한 응답이 최신 응답을 덮어써 화면에 오래된 기온이 남을 수 있다.
+  if(liveFetching) return;
+  liveFetching=true;
   liveState={s:'load',at:liveState.at,msg:''}; renderLive();
   try{
     const batches=[];
@@ -28,6 +33,8 @@ async function fetchLive(){
     if(liveOn) applyTemp();
   }catch(e){
     liveState={s:'err',at:liveState.at,msg:'실시간 데이터를 불러오지 못했습니다.'};
+  }finally{
+    liveFetching=false;
   }
   renderLive();
   refresh('data');
@@ -56,7 +63,7 @@ function renderLive(){
   if(liveOn&&liveState.s==='err'){dot='err';txt=liveState.msg;}
   el.innerHTML=`<div class="live-left"><span class="live-dot ${dot}"></span><span class="live-text">${txt}</span></div>
     <div class="live-right"><label class="switch"><input type="checkbox" id="lt" ${liveOn?'checked':''}><span>실시간 기온 반영</span></label>
-    <button class="mini-btn" id="lr" ${liveOn?'':'disabled'}>지금 갱신</button></div>`;
+    <button class="mini-btn" id="lr" ${(liveOn&&!liveFetching)?'':'disabled'}>지금 갱신</button></div>`;
   document.getElementById('lt').onchange=e=>setLive(e.target.checked);
   document.getElementById('lr').onclick=()=>{ if(liveOn) fetchLive(); };
 }
@@ -352,10 +359,10 @@ function renderBreakdown(){
   const box=$('breakBox'); if(!box) return;
   renderFormula();
   const c=ranked().find(x=>x.n===selected); if(!c) return;
-  const tw=totalWeight()||1;
+  const ew=effectiveWeights(), tw=effTotal()||1;
   const parts=FACTORS.map((f,i)=>({
-    label:f.label, w:weights[f.key], v:c[f.key],
-    contrib: c[f.key]*weights[f.key]/tw,
+    label:f.label, w:ew[f.key], v:c[f.key],
+    contrib: c[f.key]*ew[f.key]/tw,
     col: SERIES_COLORS[i%SERIES_COLORS.length],
   })).sort((a,b)=>b.contrib-a.contrib);
   const total=parts.reduce((a,x)=>a+x.contrib,0);
@@ -421,7 +428,7 @@ const dataStatus = {
 async function fetchWorldBank(code){
   const url=`https://api.worldbank.org/v2/country/all/indicator/${code}`
     +`?format=json&per_page=400&mrnev=1`;
-  const res=await fetch(url);
+  const res=await fetchTimeout(url);
   if(!res.ok) throw new Error('HTTP '+res.status);
   const json=await res.json();
   const rows=Array.isArray(json)&&json[1] ? json[1] : [];
@@ -441,7 +448,8 @@ async function fetchAnnualTemps(){
   const fmt=d=>d.toISOString().slice(0,10);
   const targets=RANKED_SET.filter(c=>typeof c.lat==='number');
   const BATCH=12;
-  let applied=0;
+  let applied=0, failedBatches=0;
+  const totalBatches=Math.ceil(targets.length/BATCH);
 
   for(let i=0;i<targets.length;i+=BATCH){
     const part=targets.slice(i,i+BATCH);
@@ -449,19 +457,25 @@ async function fetchAnnualTemps(){
     const lng=part.map(c=>c.lng.toFixed(3)).join(',');
     const url=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}`
       +`&start_date=${fmt(start)}&end_date=${fmt(end)}&daily=temperature_2m_mean&timezone=UTC`;
-    const res=await fetch(url);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    let d=await res.json();
-    if(!Array.isArray(d)) d=[d];
-    d.forEach((row,k)=>{
-      const vals=row && row.daily && row.daily.temperature_2m_mean;
-      if(!Array.isArray(vals)) return;
-      const ok=vals.filter(v=>typeof v==='number');
-      if(ok.length<200) return;                      // 결측이 많으면 건너뛴다
-      const mean=ok.reduce((a,b)=>a+b,0)/ok.length;
-      const c=part[k];
-      if(c){ c.tc=+mean.toFixed(1); c.temp=tempScore(c.tc); applied++; }
-    });
+    // 배치 하나가 실패해도 나머지 배치는 계속 시도한다 — 예전엔 여기서 던지면
+    // 이미 성공한 앞쪽 배치의 실측값이 반영됐는데도 전체가 "연동 실패"로 표시됐다.
+    try{
+      const res=await fetchTimeout(url);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      let d=await res.json();
+      if(!Array.isArray(d)) d=[d];
+      d.forEach((row,k)=>{
+        const vals=row && row.daily && row.daily.temperature_2m_mean;
+        if(!Array.isArray(vals)) return;
+        const ok=vals.filter(v=>typeof v==='number');
+        if(ok.length<200) return;                      // 결측이 많으면 건너뛴다
+        const mean=ok.reduce((a,b)=>a+b,0)/ok.length;
+        const c=part[k];
+        if(c){ c.tc=+mean.toFixed(1); c.temp=tempScore(c.tc); applied++; }
+      });
+    }catch(e){
+      failedBatches++;
+    }
   }
 
   // 내륙 보조 기준점은 부모 국가의 새 기온에 위도 보정을 다시 적용한다
@@ -473,7 +487,7 @@ async function fetchAnnualTemps(){
   });
   // 기준 기온이 바뀌었으므로 실시간 모드의 원본 값도 갱신한다
   DATA.forEach(c=>{ c.tempBase = c.temp; });
-  return applied;
+  return {applied, totalBatches, failedBatches};
 }
 
 let syncing=false;
@@ -482,52 +496,58 @@ async function syncRealData(){
   syncing=true;
   renderDataPanel('loading');
 
-  // (1) 연평균 기온 실측
+  // try/finally 로 감싸 예상 밖 오류가 나도 잠금(syncing)이 풀리고 버튼이
+  // "불러오는 중…" 상태로 영구히 멈추지 않게 한다.
   try{
-    const n=await fetchAnnualTemps();
-    dataStatus.temp = n>0
-      ? {status:'real', src:'Open-Meteo 아카이브', year:'최근 12개월',
-         note:`대표 지점 연평균 기온 실측 (${n}개국 연동)`}
-      : {status:'fail', src:'Open-Meteo', note:'관측 자료를 받지 못했습니다'};
-  }catch(e){
-    dataStatus.temp = {status:'fail', src:'Open-Meteo',
-      note:'네트워크가 차단되었거나 응답이 없습니다 — 문헌 근사치를 유지합니다'};
-  }
-
-  // (2) World Bank 지표
-  for(const ind of WB_INDICATORS){
+    // (1) 연평균 기온 실측
     try{
-      let map = await fetchWorldBank(ind.code);
-      if(Object.keys(map).length < 10 && ind.alt) map = await fetchWorldBank(ind.alt);
-
-      let applied=0, years=[];
-      RANKED_SET.forEach(c=>{
-        const row = c.iso && map[c.iso];
-        if(!row) return;
-        c[ind.key] = ind.toScore(row.value);
-        c['_raw_'+ind.key] = row.value;
-        applied++; years.push(+row.year);
-      });
-      dataStatus[ind.key] = applied>0
-        ? { status:'real', src:ind.org, n:applied,
-            year: years.length ? `${Math.min(...years)}–${Math.max(...years)}` : '',
-            note:`${ind.desc} (${applied}개국 연동)` }
-        : { status:'fail', src:ind.org, note:'응답에 해당 국가 자료가 없습니다' };
+      const {applied:n, totalBatches, failedBatches}=await fetchAnnualTemps();
+      dataStatus.temp = n>0
+        ? {status:'real', src:'Open-Meteo 아카이브', year:'최근 12개월',
+           note: failedBatches>0
+             ? `대표 지점 연평균 기온 실측 (${n}개국 연동, ${failedBatches}/${totalBatches} 구간은 갱신하지 못했습니다)`
+             : `대표 지점 연평균 기온 실측 (${n}개국 연동)`}
+        : {status:'fail', src:'Open-Meteo', note:'관측 자료를 받지 못했습니다'};
     }catch(e){
-      dataStatus[ind.key] = { status:'fail', src:ind.org,
-        note:'네트워크가 차단되었거나 응답이 없습니다' };
+      dataStatus.temp = {status:'fail', src:'Open-Meteo',
+        note:'네트워크가 차단되었거나 응답이 없습니다 — 문헌 근사치를 유지합니다'};
     }
+
+    // (2) World Bank 지표
+    for(const ind of WB_INDICATORS){
+      try{
+        let map = await fetchWorldBank(ind.code);
+        if(Object.keys(map).length < 10 && ind.alt) map = await fetchWorldBank(ind.alt);
+
+        let applied=0, years=[];
+        RANKED_SET.forEach(c=>{
+          const row = c.iso && map[c.iso];
+          if(!row) return;
+          c[ind.key] = ind.toScore(row.value);
+          c['_raw_'+ind.key] = row.value;
+          applied++; years.push(+row.year);
+        });
+        dataStatus[ind.key] = applied>0
+          ? { status:'real', src:ind.org, n:applied,
+              year: years.length ? `${Math.min(...years)}–${Math.max(...years)}` : '',
+              note:`${ind.desc} (${applied}개국 연동)` }
+          : { status:'fail', src:ind.org, note:'응답에 해당 국가 자료가 없습니다' };
+      }catch(e){
+        dataStatus[ind.key] = { status:'fail', src:ind.org,
+          note:'네트워크가 차단되었거나 응답이 없습니다' };
+      }
+    }
+
+    // 보조 기준점(rank:0)은 같은 이름의 국가 값을 물려받는다
+    DATA.filter(c=>!c.rank).forEach(c=>{
+      const src=RANKED_SET.find(x=>x.n===c.n);
+      if(src) FKEYS.forEach(k=>{ if(k!=='temp') c[k]=src[k]; });
+    });
+  }finally{
+    syncing=false;
+    SITES.forEach(x=>{ delete x._ref; });   // 지점별 기준점 캐시 무효화
+    refresh('data');
   }
-
-  // 보조 기준점(rank:0)은 같은 이름의 국가 값을 물려받는다
-  DATA.filter(c=>!c.rank).forEach(c=>{
-    const src=RANKED_SET.find(x=>x.n===c.n);
-    if(src) FKEYS.forEach(k=>{ if(k!=='temp') c[k]=src[k]; });
-  });
-
-  syncing=false;
-  SITES.forEach(x=>{ delete x._ref; });   // 지점별 기준점 캐시 무효화
-  refresh('data');
 }
 
 function renderDataPanel(state){

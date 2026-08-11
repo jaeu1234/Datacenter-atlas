@@ -41,6 +41,15 @@ function $(id){ return document.getElementById(id); }
 const ESC_MAP={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
 function esc(v){ return String(v).replace(/[&<>"']/g, ch => ESC_MAP[ch]); }
 
+// 외부 API 호출에 타임아웃을 건다. 응답이 아예 안 오면(에러도 완료도 아닌 상태)
+// "불러오는 중…" 화면이 영원히 멈추므로, 일정 시간 뒤 강제로 실패 처리한다.
+async function fetchTimeout(url, ms=12000){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(), ms);
+  try{ return await fetch(url, {signal: ctrl.signal}); }
+  finally{ clearTimeout(timer); }
+}
+
 window.addEventListener('unhandledrejection', e=>{
   console.error('[Atlas] 처리되지 않은 Promise 오류:', e.reason);
 });

@@ -93,8 +93,9 @@
   </div>
   <nav class="quicknav" aria-label="분석 탭 바로가기">
     <button type="button" class="qn-chip" data-jump="grpSettings">① 데이터 · 설정</button>
-    <button type="button" class="qn-chip" data-jump="grpResults">② 순위 · 분석 결과</button>
-    <button type="button" class="qn-chip" data-jump="grpMore">③ 시뮬레이션 · 내보내기</button>
+    <button type="button" class="qn-chip" data-jump="grpRank">② 순위</button>
+    <button type="button" class="qn-chip" data-jump="grpAnalysis">③ 분석 결과</button>
+    <button type="button" class="qn-chip" data-jump="grpMore">④ 시뮬레이션 · 내보내기</button>
   </nav>
   <section id="grpSettings">
     <div class="sec-head"><h2>데이터 연동 상태</h2>
@@ -135,13 +136,13 @@
     <div class="impact" id="impact"></div>
   </section>
 
-  <section id="grpResults">
+  <section id="grpRank">
     <div class="sec-head primary"><h2>국가 순위</h2>
       <div class="note">행을 누르면 아래에 상세 분석이 표시됩니다</div></div>
     <div class="rank-list" id="rankList"></div>
   </section>
 
-  <section>
+  <section id="grpAnalysis">
     <div class="sec-head"><h2>자동 분석 요약</h2>
       <div class="note">선택한 국가와 현재 가중치를 근거로, 규칙 기반 로직이 문장을 조립합니다 (LLM 미사용)</div></div>
     <div class="ai-box" id="aiBox"></div>

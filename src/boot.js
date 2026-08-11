@@ -14,7 +14,6 @@ buildRankList(); updateRankList(); buildDetail(); buildCompare(); updateMarkerCo
 renderEras(); renderSources();
 /* ---- 아코디언: 분석 탭의 긴 섹션을 접을 수 있게 ---- */
 function setupAccordion(){
-  const targets=['aiBox','detail','breakBox','simBox','siteCmp'];
   document.querySelectorAll('#analysisPane section').forEach(sec=>{
     const body=sec.querySelector('.ai-box,.detail,.break-box,.sim-box,.site-cmp');
     if(!body) return;

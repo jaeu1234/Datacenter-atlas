@@ -167,9 +167,9 @@ function buildDetail(){
         return rv ? `<b class="m2-raw">${rv}</b> · ${SOURCES[f.key].n}` : `${SOURCES[f.key].n} (배정값)`; })()}</div>
       </div>`).join('')}</div>
     <div class="verdict" id="dVerdict"></div></div>`;
-  renderBreakdown(); updateHeavyPanels();
+  updateHeavyPanels();
   dScore=$('dScore'); dStars=$('dStars'); dVerdict=$('dVerdict');
-  updateDetailScore();
+  updateDetailScore();   // renderBreakdown()도 여기서 함께 갱신된다
 }
 function updateDetailScore(){
   if(!dScore) return;
@@ -187,8 +187,9 @@ function updateDetailScore(){
 }
 
 // 문장 생성·지점 비교·시뮬레이터는 비용이 크므로 드래그가 끝났을 때만 실행한다
+// 비교 표(레이더·순위 추세 포함)는 refresh() 가 renderCompareTable() 을 따로 호출해
+// 갱신하므로 여기서 다시 부르면 같은 계산이 중복된다.
 function updateHeavyPanels(){
-  renderCompareTable(true);          // 레이더·순위 추세는 여기서만 다시 그린다
   const c=ranked().find(x=>x.n===selected); if(!c) return;
   const ai=$('aiBox'); if(ai) ai.innerHTML=aiNarrative(c);
   renderSiteCompare(c);
@@ -596,7 +597,11 @@ function refresh(scope='weights'){
   updateRankList();
   if(scope==='selection'||scope==='era'||scope==='data') buildDetail();
   else updateDetailScore();
-  renderCompareTable(scope!=='drag');
+  // 레이더·순위 추세 재계산(340회 adjust())은 비교 탭이 보일 때만 한다 — 다른 탭에서
+  // 가중치를 조작할 때마다 안 보이는 화면을 다시 그리는 낭비를 막는다. 탭을 열면
+  // tabs.js 가 다시 full=true 로 불러 최신 상태를 보장한다.
+  const cmpVisible=$('comparePane').classList.contains('on');
+  renderCompareTable(scope!=='drag' && cmpVisible);
   if(scope==='drag') return;
 
   // 2) 무거운 갱신 — 조작이 끝난 뒤에만
