@@ -8,6 +8,8 @@
       integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb"
       crossorigin="anonymous" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -17,6 +19,7 @@
   /* 본문·라벨용 크기 스케일. 개별 px 값을 낱개로 늘리지 말고 이 5단계 안에서 고른다.
      18px 이상(제목·점수 숫자)은 의도적으로 스케일 밖에 둔 강조용 크기라 그대로 리터럴로 쓴다. */
   --fs-1:10px; --fs-2:11.5px; --fs-3:12.5px; --fs-4:13px; --fs-5:14.5px;
+  --shadow-card:0 1px 2px rgba(0,0,0,0.18), 0 4px 14px rgba(0,0,0,0.22);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
@@ -109,8 +112,8 @@ header{
   opacity:0.5;animation:pulse 1.8s ease-out infinite;}
 
 /* map overlays */
-.ov{position:absolute;z-index:1000;background:#fff;border-radius:4px;
-  box-shadow:0 1px 5px rgba(0,0,0,0.28);color:#3B4551;}
+.ov{position:absolute;z-index:1000;background:#fff;border-radius:6px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.16), 0 1px 2px rgba(0,0,0,0.12);color:#3B4551;}
 .legend{left:14px;top:14px;padding:10px 13px;font-size:var(--fs-3);}
 .legend .title{font-size:var(--fs-1);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
   color:#7A8798;margin-bottom:8px;}
@@ -227,6 +230,10 @@ input[type=range]:active{cursor:grabbing;}
   cursor:pointer;transition:border-color .15s,transform .15s;
   width:100%;font:inherit;color:inherit;text-align:left;}
 .rank-row:hover{border-color:var(--accent);transform:translateX(2px);}
+.rank-row.medal-1{border-color:#D9B356;background:linear-gradient(90deg,rgba(217,179,86,0.13),var(--bg-2) 45%);}
+.rank-row.medal-2{border-color:#B9C4D2;background:linear-gradient(90deg,rgba(185,196,210,0.11),var(--bg-2) 45%);}
+.rank-row.medal-3{border-color:#C98F5B;background:linear-gradient(90deg,rgba(201,143,91,0.11),var(--bg-2) 45%);}
+.rank-row.medal-1 .pos,.rank-row.medal-2 .pos,.rank-row.medal-3 .pos{font-weight:700;color:var(--ink);}
 .rank-row.sel{border-color:var(--accent);}
 .rank-row .pos{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-3);color:var(--dim);}
 .rank-row .nm{font-size:var(--fs-4);font-weight:600;}
@@ -399,9 +406,26 @@ td .n{font-family:'IBM Plex Mono',monospace;}
   padding:14px 17px;margin-bottom:24px;}
 .tab-intro b{color:var(--ink);}
 
+/* ---------- 분석 탭 바로가기 내비게이션 ---------- */
+.quicknav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px;
+  position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0;}
+.qn-chip{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);
+  padding:7px 13px;border-radius:999px;font-size:var(--fs-4);cursor:pointer;
+  font-family:inherit;font-weight:500;transition:all .16s;}
+.qn-chip:hover{border-color:var(--accent);color:var(--ink);}
+.qn-chip.on{background:var(--accent);border-color:var(--accent);color:#062430;font-weight:600;}
+
+/* ---------- 카드 입체감 ---------- */
+/* 지금까지는 보더 선 하나로만 구획을 나눠 화면 전체가 평평해 보였다.
+   주요 콘텐츠 카드에만 은은한 그림자를 줘서 배경/카드 위계를 눈으로 구분되게 한다. */
+.weights,.impact,.break-box,.sim-box,.site-cmp,.report-box,.cmp-radar,.trend-box,
+.data-panel,.corr-box,.formula-box,.mode-hint,.tab-intro,.detail,.ai-box{
+  box-shadow:var(--shadow-card);
+}
+
 /* ---------- 지도 필터 드롭다운 ---------- */
 #filterSelect{width:100%;background:#fff;color:#3B4551;border:1px solid #E1E6EC;
-  border-radius:5px;padding:7px 9px;font-size:var(--fs-3);font-family:inherit;cursor:pointer;min-width:150px;}
+  border-radius:6px;padding:7px 9px;font-size:var(--fs-3);font-family:inherit;cursor:pointer;min-width:150px;}
 .filter-panel{max-width:190px;}
 
 /* ---------- 다크 지도 ---------- */
@@ -512,9 +536,9 @@ section.closed > *:not(.sec-head){display:none !important;}
 .sim-input label{margin-bottom:9px;}
 
 /* ---------- 기업·지역 필터 ---------- */
-.site-filter{left:14px;top:112px;padding:9px 11px;display:flex;gap:6px;
-  align-items:center;flex-wrap:wrap;max-width:230px;}
-.site-filter select{background:#fff;color:#3B4551;border:1px solid #E1E6EC;border-radius:5px;
+.site-filter{left:14px;top:var(--sf-top,112px);padding:9px 11px;display:flex;gap:6px;
+  align-items:center;flex-wrap:wrap;max-width:230px;transition:top .15s ease;}
+.site-filter select{background:#fff;color:#3B4551;border:1px solid #E1E6EC;border-radius:6px;
   padding:5px 8px;font-size:var(--fs-2);font-family:inherit;cursor:pointer;max-width:105px;}
 .sf-count{font-size:var(--fs-1);color:#7A8798;width:100%;}
 
@@ -639,7 +663,12 @@ section.closed > *:not(.sec-head){display:none !important;}
     <b>국가 순위·상세 점수</b>를 봅니다. 아래로 내리면 순서대로: 데이터 출처 → 목적/가중치 →
     <b>국가 순위·상세 분석</b>(핵심) → 시뮬레이션 → 보고서 내보내기입니다.
   </div>
-  <section>
+  <nav class="quicknav" aria-label="분석 탭 바로가기">
+    <button type="button" class="qn-chip" data-jump="grpSettings">① 데이터 · 설정</button>
+    <button type="button" class="qn-chip" data-jump="grpResults">② 순위 · 분석 결과</button>
+    <button type="button" class="qn-chip" data-jump="grpMore">③ 시뮬레이션 · 내보내기</button>
+  </nav>
+  <section id="grpSettings">
     <div class="sec-head"><h2>데이터 연동 상태</h2>
       <div class="note">어떤 값이 실측이고 어떤 값이 추정인지 표시합니다</div></div>
     <div class="data-panel" id="dataPanel"></div>
@@ -678,7 +707,7 @@ section.closed > *:not(.sec-head){display:none !important;}
     <div class="impact" id="impact"></div>
   </section>
 
-  <section>
+  <section id="grpResults">
     <div class="sec-head primary"><h2>국가 순위</h2>
       <div class="note">행을 누르면 아래에 상세 분석이 표시됩니다</div></div>
     <div class="rank-list" id="rankList"></div>
@@ -703,7 +732,7 @@ section.closed > *:not(.sec-head){display:none !important;}
     <div class="break-box" id="breakBox"></div>
   </section>
 
-  <section>
+  <section id="grpMore">
     <div class="sec-head"><h2>운영 시뮬레이션</h2>
       <div class="note">전력 소비 · 냉각 · 탄소배출 · 비용 추정</div></div>
     <div class="sim-box" id="simBox"></div>
@@ -1634,6 +1663,10 @@ function renderLegend(){
     b.innerHTML=`<div class="scale">${[40,50,60,70,80,90].map(v=>`<i style="background:${heat(v)}"></i>`).join('')}</div>
       <div class="scale-lb"><span>◀ 낮음 (40)</span><span>높음 (90) ▶</span></div>`;
   }
+  // 범례 높이는 필터 종류에 따라 달라진다 — 아래 붙은 기업/지역 필터 패널이
+  // 겹치지 않도록 매번 실제 높이를 재서 그 아래에 붙인다 (모바일은 별도 위치라 영향 없음).
+  const legend=document.querySelector('.legend');
+  if(legend) document.documentElement.style.setProperty('--sf-top', (legend.offsetHeight+24)+'px');
 }
 function renderFilters(){
   const el=document.getElementById('filterSelect');
@@ -1645,6 +1678,9 @@ function renderFilters(){
   el.value=filterMode;
 }
 renderFilters(); renderLegend();
+// 웹폰트가 늦게 도착하면 글자 크기가 바뀌면서 범례 높이가 달라진다 —
+// 폰트 로딩이 끝난 뒤 한 번 더 맞춰서 필터 패널과 겹치지 않게 한다.
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(renderLegend);
 
 /* ---- 기업 · 지역 필터 ---- */
 let coFilter='all', regionFilter='all';
@@ -2709,6 +2745,9 @@ function updateRankList(){
     el._sc.textContent=c.score.toFixed(1);
     el._sc.style.color=col;
     el.classList.toggle('sel',c.n===selected);
+    el.classList.toggle('medal-1',i===0);
+    el.classList.toggle('medal-2',i===1);
+    el.classList.toggle('medal-3',i===2);
     frag.appendChild(el);   // 기존 노드를 옮기는 것이라 재파싱이 없다
   });
   elRankList.appendChild(frag);
@@ -3393,6 +3432,27 @@ $('searchInput').addEventListener('blur',()=>setTimeout(()=>{
 $('searchInput').addEventListener('focus',e=>{ if(e.target.value.trim()) runSearch(e.target.value); });
 renderBreakdown(); renderSimulator();
 setupAccordion(); updateMarkerScale(); renderCorr(); renderDataPanel(); renderSiteFilter();
+
+/* ---- 분석 탭 바로가기: 클릭하면 해당 그룹으로 스크롤, 스크롤 위치에 따라 활성 표시 ---- */
+(function setupQuickNav(){
+  const nav=document.querySelector('.quicknav'); if(!nav) return;
+  const chips=Array.from(nav.querySelectorAll('.qn-chip'));
+  chips.forEach(b=>b.addEventListener('click',()=>{
+    const target=$(b.dataset.jump);
+    if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  }));
+  const targets=chips.map(b=>$(b.dataset.jump)).filter(Boolean);
+  const scrollRoot=document.querySelector('#analysisPane .scroll');
+  if(!targets.length || !scrollRoot || typeof IntersectionObserver==='undefined') return;
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(en=>{
+      if(!en.isIntersecting) return;
+      const i=targets.indexOf(en.target);
+      chips.forEach((b,j)=>b.classList.toggle('on', j===i));
+    });
+  }, {root: scrollRoot, rootMargin:'-10% 0px -75% 0px', threshold:0});
+  targets.forEach(t=>io.observe(t));
+})();
 </script>
 </body>
 </html>

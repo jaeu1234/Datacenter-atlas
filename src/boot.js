@@ -116,3 +116,24 @@ $('searchInput').addEventListener('blur',()=>setTimeout(()=>{
 $('searchInput').addEventListener('focus',e=>{ if(e.target.value.trim()) runSearch(e.target.value); });
 renderBreakdown(); renderSimulator();
 setupAccordion(); updateMarkerScale(); renderCorr(); renderDataPanel(); renderSiteFilter();
+
+/* ---- 분석 탭 바로가기: 클릭하면 해당 그룹으로 스크롤, 스크롤 위치에 따라 활성 표시 ---- */
+(function setupQuickNav(){
+  const nav=document.querySelector('.quicknav'); if(!nav) return;
+  const chips=Array.from(nav.querySelectorAll('.qn-chip'));
+  chips.forEach(b=>b.addEventListener('click',()=>{
+    const target=$(b.dataset.jump);
+    if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  }));
+  const targets=chips.map(b=>$(b.dataset.jump)).filter(Boolean);
+  const scrollRoot=document.querySelector('#analysisPane .scroll');
+  if(!targets.length || !scrollRoot || typeof IntersectionObserver==='undefined') return;
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(en=>{
+      if(!en.isIntersecting) return;
+      const i=targets.indexOf(en.target);
+      chips.forEach((b,j)=>b.classList.toggle('on', j===i));
+    });
+  }, {root: scrollRoot, rootMargin:'-10% 0px -75% 0px', threshold:0});
+  targets.forEach(t=>io.observe(t));
+})();

@@ -116,6 +116,9 @@ function updateRankList(){
     el._sc.textContent=c.score.toFixed(1);
     el._sc.style.color=col;
     el.classList.toggle('sel',c.n===selected);
+    el.classList.toggle('medal-1',i===0);
+    el.classList.toggle('medal-2',i===1);
+    el.classList.toggle('medal-3',i===2);
     frag.appendChild(el);   // 기존 노드를 옮기는 것이라 재파싱이 없다
   });
   elRankList.appendChild(frag);

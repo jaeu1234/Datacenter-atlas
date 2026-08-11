@@ -8,6 +8,8 @@
       integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb"
       crossorigin="anonymous" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>{{STYLES}}</style>
 </head>
@@ -89,7 +91,12 @@
     <b>국가 순위·상세 점수</b>를 봅니다. 아래로 내리면 순서대로: 데이터 출처 → 목적/가중치 →
     <b>국가 순위·상세 분석</b>(핵심) → 시뮬레이션 → 보고서 내보내기입니다.
   </div>
-  <section>
+  <nav class="quicknav" aria-label="분석 탭 바로가기">
+    <button type="button" class="qn-chip" data-jump="grpSettings">① 데이터 · 설정</button>
+    <button type="button" class="qn-chip" data-jump="grpResults">② 순위 · 분석 결과</button>
+    <button type="button" class="qn-chip" data-jump="grpMore">③ 시뮬레이션 · 내보내기</button>
+  </nav>
+  <section id="grpSettings">
     <div class="sec-head"><h2>데이터 연동 상태</h2>
       <div class="note">어떤 값이 실측이고 어떤 값이 추정인지 표시합니다</div></div>
     <div class="data-panel" id="dataPanel"></div>
@@ -128,7 +135,7 @@
     <div class="impact" id="impact"></div>
   </section>
 
-  <section>
+  <section id="grpResults">
     <div class="sec-head primary"><h2>국가 순위</h2>
       <div class="note">행을 누르면 아래에 상세 분석이 표시됩니다</div></div>
     <div class="rank-list" id="rankList"></div>
@@ -153,7 +160,7 @@
     <div class="break-box" id="breakBox"></div>
   </section>
 
-  <section>
+  <section id="grpMore">
     <div class="sec-head"><h2>운영 시뮬레이션</h2>
       <div class="note">전력 소비 · 냉각 · 탄소배출 · 비용 추정</div></div>
     <div class="sim-box" id="simBox"></div>

@@ -243,6 +243,10 @@ function renderLegend(){
     b.innerHTML=`<div class="scale">${[40,50,60,70,80,90].map(v=>`<i style="background:${heat(v)}"></i>`).join('')}</div>
       <div class="scale-lb"><span>◀ 낮음 (40)</span><span>높음 (90) ▶</span></div>`;
   }
+  // 범례 높이는 필터 종류에 따라 달라진다 — 아래 붙은 기업/지역 필터 패널이
+  // 겹치지 않도록 매번 실제 높이를 재서 그 아래에 붙인다 (모바일은 별도 위치라 영향 없음).
+  const legend=document.querySelector('.legend');
+  if(legend) document.documentElement.style.setProperty('--sf-top', (legend.offsetHeight+24)+'px');
 }
 function renderFilters(){
   const el=document.getElementById('filterSelect');
@@ -254,6 +258,9 @@ function renderFilters(){
   el.value=filterMode;
 }
 renderFilters(); renderLegend();
+// 웹폰트가 늦게 도착하면 글자 크기가 바뀌면서 범례 높이가 달라진다 —
+// 폰트 로딩이 끝난 뒤 한 번 더 맞춰서 필터 패널과 겹치지 않게 한다.
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(renderLegend);
 
 /* ---- 기업 · 지역 필터 ---- */
 let coFilter='all', regionFilter='all';
