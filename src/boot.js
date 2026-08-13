@@ -90,7 +90,7 @@ $('repStudy').onclick=()=>{
   const box=$('reportBox');
   box.style.display='block'; box.textContent=buildStudyReport();
   box.scrollIntoView({behavior:'smooth',block:'nearest'});
-  download(`탐구보고서-${selected}-${new Date().toISOString().slice(0,10)}.md`,
+  download(`study-report-${fileSlug(selected)}-${new Date().toISOString().slice(0,10)}.md`,
            buildStudyReport(), 'text/markdown;charset=utf-8');
 };
 $('repCSV').onclick=()=>download(
@@ -117,9 +117,19 @@ renderBreakdown(); renderSimulator();
 setupAccordion(); updateMarkerScale(); renderCorr(); renderDataPanel(); renderSiteFilter();
 
 /* ---- 분석 탭 바로가기: 클릭하면 해당 그룹으로 스크롤, 스크롤 위치에 따라 활성 표시 ---- */
+// .quicknav 는 position:sticky 라 스크롤해도 위에 그대로 남는다. 그 높이만큼
+// scroll-margin-top 을 줘야 이동한 섹션 맨 위가 sticky 바에 가려지지 않는다.
+// 분석 탭이 처음엔 숨겨져 있어(display:none) 로드 시점엔 높이가 0이므로,
+// 탭을 열 때도 다시 재는 게 필수다 — 그래서 top-level 함수로 둬 tabs.js에서도 부른다.
+function syncQuickNavHeight(){
+  const nav=document.querySelector('.quicknav'); if(!nav) return;
+  document.documentElement.style.setProperty('--qn-h', nav.offsetHeight+'px');
+}
 (function setupQuickNav(){
   const nav=document.querySelector('.quicknav'); if(!nav) return;
   const chips=Array.from(nav.querySelectorAll('.qn-chip'));
+  syncQuickNavHeight();
+  window.addEventListener('resize', syncQuickNavHeight);
   chips.forEach(b=>b.addEventListener('click',()=>{
     const target=$(b.dataset.jump);
     if(target) target.scrollIntoView({behavior:'smooth', block:'start'});

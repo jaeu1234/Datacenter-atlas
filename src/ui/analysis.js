@@ -337,8 +337,11 @@ function buildReport(){
   const list=ranked(), rank=list.findIndex(x=>x.n===c.n)+1;
   const p=PURPOSES.find(x=>x.id===activePurpose);
   const real=sitesInCountry(c.n);
-  const strong=[...FACTORS].sort((a,b)=>c[b.key]-c[a.key]).slice(0,3);
-  const weak=[...FACTORS].sort((a,b)=>c[a.key]-c[b.key]).slice(0,3);
+  // 화면의 "장점/단점"(aiNarrative)과 같은 절대 점수 기준을 쓴다.
+  // 순위로만 뽑으면 모든 항목이 낮아도(또는 높아도) 억지로 3개를 채우게 된다.
+  const factorsSorted=[...FACTORS].sort((a,b)=>c[b.key]-c[a.key]);
+  const strong=factorsSorted.filter(f=>c[f.key]>=75).slice(0,4);
+  const weak=factorsSorted.filter(f=>c[f.key]<55).slice(-3).reverse();
   const now=new Date().toISOString().slice(0,10);
   const L=[];
   L.push(`# 데이터센터 입지 분석 보고서 — ${c.n}`,'');
@@ -364,10 +367,12 @@ function buildReport(){
   });
   L.push('');
   L.push('## 2. 추천 근거','');
-  strong.forEach(f=>L.push(`- **${f.label} ${c[f.key]}점** — ${reasonOf(f.key,c[f.key])}`));
+  if(strong.length) strong.forEach(f=>L.push(`- **${f.label} ${c[f.key]}점** — ${reasonOf(f.key,c[f.key])}`));
+  else L.push('- 75점 이상인 항목이 없습니다.');
   L.push('');
   L.push('## 3. 약점 및 보완 과제','');
-  weak.forEach(f=>L.push(`- **${f.label} ${c[f.key]}점** — ${reasonOf(f.key,c[f.key])}`));
+  if(weak.length) weak.forEach(f=>L.push(`- **${f.label} ${c[f.key]}점** — ${reasonOf(f.key,c[f.key])}`));
+  else L.push('- 55점 미만인 항목이 없습니다.');
   L.push('');
   L.push('## 4. 실제 운영 사례와의 비교','');
   if(real.length){
@@ -449,6 +454,12 @@ function download(name, text, type){
   a.href=URL.createObjectURL(blob); a.download=name;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+// 국가의 한글 이름을 다운로드 파일명에 그대로 쓰면 브라우저가 파일명 전체를
+// 무시하고 확장자까지 없이 "download"로 저장하는 경우가 있어, 로마자 ISO 코드로 대신한다.
+function fileSlug(name){
+  const c=RANKED_SET.find(x=>x.n===name);
+  return c && c.iso ? c.iso : 'unknown';
 }
 
 /* ---- 탐구 보고서 (학교 제출용 서식) ---- */
@@ -542,7 +553,7 @@ function downloadReport(){
   const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=`datacenter-report-${selected}-${new Date().toISOString().slice(0,10)}.md`;
+  a.download=`datacenter-report-${fileSlug(selected)}-${new Date().toISOString().slice(0,10)}.md`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
@@ -570,7 +581,7 @@ function renderEras(){
       : `전지구 평균기온이 <b>+${ERAS[era].dt}°C</b> 오른다고 가정하되,
          <b>위도별 증폭</b>을 적용했습니다 (북극권 최대 ×1.9, 열대 ×0.75).
          ${selected}의 점수는 <b style="color:${d<0?'var(--bad)':'var(--good)'}">${d>=0?'+':''}${d.toFixed(1)}점</b> 변합니다.
-         1위는 ${beforeTop.n}에서 <b>${afterTop.n}</b>으로 ${beforeTop.n===afterTop.n?'그대로입니다':'바뀝니다'}.
+         1위는 ${beforeTop.n}에서 <b>${afterTop.n}</b>${josa(afterTop.n,'으로','로')} ${beforeTop.n===afterTop.n?'그대로입니다':'바뀝니다'}.
          고위도는 온난화 폭이 커 <b>냉각 우위가 줄어들고</b>, 아열대 건조대는 물 부족이,
          저위도 해안은 태풍 위험이 더 커집니다.`;
   });

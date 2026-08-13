@@ -41,6 +41,14 @@ function $(id){ return document.getElementById(id); }
 const ESC_MAP={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
 function esc(v){ return String(v).replace(/[&<>"']/g, ch => ESC_MAP[ch]); }
 
+// 국가명 등 마지막 글자 받침 유무에 따라 "로/으로", "은/는", "이/가" 같은 조사를
+// 고른다. 완성형 한글이 아니면(영문 등) 받침이 있는 쪽 조사를 기본값으로 쓴다.
+function josa(word, withBatchim, withoutBatchim){
+  const code = String(word).charCodeAt(String(word).length-1) - 0xAC00;
+  if(code<0 || code>11171) return withBatchim;
+  return (code%28)!==0 ? withBatchim : withoutBatchim;
+}
+
 // 외부 API 호출에 타임아웃을 건다. 응답이 아예 안 오면(에러도 완료도 아닌 상태)
 // "불러오는 중…" 화면이 영원히 멈추므로, 일정 시간 뒤 강제로 실패 처리한다.
 async function fetchTimeout(url, ms=12000){
