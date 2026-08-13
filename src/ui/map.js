@@ -377,6 +377,10 @@ function openGroup(gid, siteId){
   const s=cur.x, r=cur.r, c=color(r.total);
   const es=FKEYS.map(k=>({k,v:r.m[k]})).sort((a,b)=>b.v-a.v);
   const grade=r.total>=85?'입지가 매우 우수합니다':r.total>=65?'입지가 양호합니다':'입지 조건이 불리한 편입니다';
+  // 상위/하위 3개는 항상 순위로만 뽑히므로, 순위와 별개로 실제 '양호'(65점) 기준을
+  // 넘거나 못 미치는 항목만 적합 요인/고려 사항으로 표시한다.
+  const goodFactors=es.slice(0,3).filter(e=>e.v>=65);
+  const badFactors=es.slice(-3).reverse().filter(e=>e.v<65);
 
   const list = g.sites.length>1 ? `
     <div class="sec-t">이 지역의 데이터센터 ${g.sites.length}곳</div>
@@ -399,9 +403,13 @@ function openGroup(gid, siteId){
     <div class="score-block"><div class="num" style="color:${c}">${r.total.toFixed(1)}<small>/100</small></div>
       <div class="stars" style="color:${c}">${stars(r.total)}</div></div>
     <div class="sec-t">적합 요인</div>
-    <ul class="flist good">${es.slice(0,3).map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <ul class="flist good">${goodFactors.length
+      ? goodFactors.map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')
+      : `<li class="flist-empty">65점 이상인 항목이 없습니다</li>`}</ul>
     <div class="sec-t">고려 사항</div>
-    <ul class="flist bad">${es.slice(-3).reverse().map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <ul class="flist bad">${badFactors.length
+      ? badFactors.map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')
+      : `<li class="flist-empty">65점 미만인 항목이 없습니다</li>`}</ul>
     <div class="metrics">${FKEYS.map(k=>`<div class="metric"><div class="lbl">${FLABEL[k]}</div>
       <div class="bar"><i style="width:${r.m[k]}%;background:${color(r.m[k])}"></i></div>
       <div class="val">${r.m[k]} / 100</div></div>`).join('')}</div>
@@ -461,6 +469,8 @@ function renderProbe(r){
   const c=color(r.total);
   const es=FKEYS.map(k=>({k,v:r.m[k]})).sort((a,b)=>b.v-a.v);
   const grade=r.total>=85?'매우 유망한 후보지':r.total>=65?'검토해볼 만한 후보지':'권장하기 어려운 지역';
+  const goodFactors=es.slice(0,3).filter(e=>e.v>=65);
+  const badFactors=es.slice(-3).reverse().filter(e=>e.v<65);
   mpanelIn.innerHTML=`
     <div class="p-eyebrow"><span>지점 평가 // ${r.lat.toFixed(2)}°, ${r.lng.toFixed(2)}°</span>
       <span class="p-close" id="cbtn">닫기 ✕</span></div>
@@ -469,9 +479,13 @@ function renderProbe(r){
     <div class="score-block"><div class="num" style="color:${c}">${r.total.toFixed(1)}<small>/100</small></div>
       <div class="stars" style="color:${c}">${stars(r.total)}</div></div>
     <div class="sec-t">유리한 조건</div>
-    <ul class="flist good">${es.slice(0,3).map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <ul class="flist good">${goodFactors.length
+      ? goodFactors.map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')
+      : `<li class="flist-empty">65점 이상인 항목이 없습니다</li>`}</ul>
     <div class="sec-t">불리한 조건</div>
-    <ul class="flist bad">${es.slice(-3).reverse().map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <ul class="flist bad">${badFactors.length
+      ? badFactors.map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')
+      : `<li class="flist-empty">65점 미만인 항목이 없습니다</li>`}</ul>
     <div class="metrics">${FKEYS.map(k=>`<div class="metric"><div class="lbl">${FLABEL[k]}</div>
       <div class="bar"><i style="width:${r.m[k]}%;background:${color(r.m[k])}"></i></div>
       <div class="val">${r.m[k]} / 100</div></div>`).join('')}</div>

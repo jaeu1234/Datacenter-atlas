@@ -141,6 +141,7 @@ ul.flist{list-style:none;margin-top:9px;}
 ul.flist li{display:flex;gap:9px;font-size:var(--fs-4);line-height:1.55;margin-top:6px;}
 ul.flist li .mk{font-family:'IBM Plex Mono',monospace;font-weight:600;flex-shrink:0;}
 ul.flist.good li .mk{color:var(--good);} ul.flist.bad li .mk{color:var(--bad);}
+ul.flist li.flist-empty{color:var(--dim);font-style:italic;}
 .metrics{margin-top:18px;padding-top:13px;border-top:1px dashed var(--line);
 display:grid;grid-template-columns:1fr 1fr;gap:11px 14px;}
 .metric .lbl{font-size:var(--fs-1);color:var(--dim);text-transform:uppercase;letter-spacing:0.06em;}
@@ -276,7 +277,21 @@ padding:8px 0;font-size:var(--fs-3);border-bottom:1px solid rgba(133,178,224,0.0
 .report-box{margin-top:14px;background:#08152A;border:1px solid var(--line);border-radius:8px;
 padding:16px;font-family:'IBM Plex Mono',monospace;font-size:var(--fs-2);line-height:1.7;
 color:var(--muted);white-space:pre-wrap;max-height:420px;overflow:auto;}
-.pick-box{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.cmp-selected{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.schip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);
+background:var(--bg-2);border-radius:999px;padding:5px 8px 5px 12px;font-size:var(--fs-3);
+font-weight:600;cursor:pointer;font-family:inherit;}
+.schip .x{opacity:.7;font-size:var(--fs-1);}
+.schip:hover .x{opacity:1;}
+.cmp-picker{margin-bottom:16px;}
+.cmp-picker>summary{cursor:pointer;list-style:none;font-size:var(--fs-3);color:var(--muted);
+padding:8px 0;user-select:none;}
+.cmp-picker>summary::-webkit-details-marker{display:none;}
+.cmp-picker>summary::before{content:'▸';display:inline-block;margin-right:6px;color:var(--dim);
+transition:transform .15s;}
+.cmp-picker[open]>summary::before{transform:rotate(90deg);}
+.cmp-picker>summary .hint{color:var(--dim);font-size:var(--fs-1);margin-left:2px;}
+.pick-box{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .pchip{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);border-radius:999px;
 padding:6px 12px;font-size:var(--fs-3);cursor:pointer;font-family:inherit;transition:all .15s;}
 .pchip:hover{border-color:var(--accent);}
@@ -336,6 +351,7 @@ background:rgba(224,166,63,0.13);border-bottom:1px solid rgba(224,166,63,0.3);
 padding:10px 18px;font-size:var(--fs-3);line-height:1.6;color:var(--muted);}
 .nb-icon{color:var(--mid);font-size:var(--fs-4);flex-shrink:0;}
 .nb-text{flex:1;} .nb-text b{color:var(--ink);}
+.nb-text .nb-short{display:none;}
 .nb-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:var(--fs-5);
 padding:0 4px;flex-shrink:0;}
 .nb-close:hover{color:var(--ink);}
@@ -458,8 +474,8 @@ padding:5px 8px;font-size:var(--fs-2);font-family:inherit;cursor:pointer;max-wid
 .fm-term{grid-template-columns:82px 34px 12px 44px 12px 1fr;font-size:var(--fs-1);}
 .ds-row{grid-template-columns:80px 66px 1fr;}
 .notice-banner{padding:8px 12px;font-size:var(--fs-2);align-items:center;}
-.nb-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.nb-text .nb-long{display:none;}
+.nb-text .nb-full{display:none;}
+.nb-text .nb-short{display:inline;}
 .filter-panel{max-width:none;}
 .mode-toggle{margin-left:auto;}
 .search-box{flex:1 1 auto;min-width:0;}
@@ -473,6 +489,12 @@ header{padding:9px 13px 0;}
 .brand{font-size:var(--fs-5);}
 .hd-stats{gap:12px;} .hd-stats .st .n{font-size:var(--fs-4);} .hd-stats .st .l{font-size:var(--fs-1);}
 .tab{padding:8px 11px;font-size:var(--fs-3);}
+}
+@media(max-width:480px){
+.hd-top{flex-wrap:wrap;row-gap:8px;}
+.search-box{order:3;flex:1 1 100%;min-width:0;}
+}
+@media(max-width:820px){
 .legend{padding:8px 10px;font-size:var(--fs-2);left:10px;top:10px;}
 .filter-panel{left:10px;right:64px;bottom:10px;max-width:none;}
 .zoom-ctrl{right:10px;bottom:10px;}
@@ -512,11 +534,13 @@ transition:height .3s cubic-bezier(.4,0,.2,1);}
 
 <div class="notice-banner" id="dataBanner">
   <span class="nb-icon">ⓘ</span>
-  <span class="nb-text"><b>고교 심화 탐구용 학습 모델입니다.</b> 실제 투자 판단에는 쓸 수 없습니다.
+  <span class="nb-text"><b>고교 심화 탐구용 학습 모델입니다.</b>
+    <span class="nb-full">실제 투자 판단에는 쓸 수 없습니다.
     기본값은 8개 지표 모두 공개 통계를 참고해 배정한 값이며, "공개 데이터 불러오기"를 누르면
     기후·재생에너지·전력망·냉각 수자원·인터넷·토지 비용 6개는 실측으로 바뀝니다. 전기요금·재해위험은
     무료 API가 없어 추정값으로 남습니다.<span class="nb-long">
-    비교 탭의 출처 표에서 항목별로 실측/배정값 구분을 확인할 수 있습니다.</span></span>
+    비교 탭의 출처 표에서 항목별로 실측/배정값 구분을 확인할 수 있습니다.</span></span><span class="nb-short">
+    실제 투자 판단에는 쓸 수 없는 추정치입니다. 자세한 근거는 비교 탭에서 확인하세요.</span></span>
   <button class="nb-close" id="nbClose" aria-label="안내 닫기">✕</button>
 </div>
 
@@ -670,9 +694,11 @@ transition:height .3s cubic-bezier(.4,0,.2,1);}
   <section>
     <div class="sec-head"><h2>국가 비교</h2>
       <div class="note">현재 가중치 기준으로 총점이 계산됩니다</div></div>
-    <div class="note" style="font-size:12px;color:var(--dim);margin-bottom:10px">
-      국가를 눌러 선택하세요 (최대 5개)</div>
-    <div class="pick-box" id="cmpPick" role="group" aria-label="비교할 국가 선택"></div>
+    <div class="cmp-selected" id="cmpSelected" role="group" aria-label="선택된 국가"></div>
+    <details class="cmp-picker" id="cmpPickerDetails" open>
+      <summary>국가 목록에서 선택·변경 <span class="hint">(최대 5개)</span></summary>
+      <div class="pick-box" id="cmpPick" role="group" aria-label="비교할 국가 선택"></div>
+    </details>
     <div class="cmp-radar" id="cmpRadar"></div>
     <div class="trend-box" id="trendBox"></div>
     <div id="cmpTable"></div>
@@ -1648,6 +1674,8 @@ function openGroup(gid, siteId){
   const s=cur.x, r=cur.r, c=color(r.total);
   const es=FKEYS.map(k=>({k,v:r.m[k]})).sort((a,b)=>b.v-a.v);
   const grade=r.total>=85?'입지가 매우 우수합니다':r.total>=65?'입지가 양호합니다':'입지 조건이 불리한 편입니다';
+  const goodFactors=es.slice(0,3).filter(e=>e.v>=65);
+  const badFactors=es.slice(-3).reverse().filter(e=>e.v<65);
 
   const list = g.sites.length>1 ? `
     <div class="sec-t">이 지역의 데이터센터 ${g.sites.length}곳</div>
@@ -1670,9 +1698,13 @@ function openGroup(gid, siteId){
     <div class="score-block"><div class="num" style="color:${c}">${r.total.toFixed(1)}<small>/100</small></div>
       <div class="stars" style="color:${c}">${stars(r.total)}</div></div>
     <div class="sec-t">적합 요인</div>
-    <ul class="flist good">${es.slice(0,3).map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <ul class="flist good">${goodFactors.length
+      ? goodFactors.map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')
+      : `<li class="flist-empty">65점 이상인 항목이 없습니다</li>`}</ul>
     <div class="sec-t">고려 사항</div>
-    <ul class="flist bad">${es.slice(-3).reverse().map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <ul class="flist bad">${badFactors.length
+      ? badFactors.map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')
+      : `<li class="flist-empty">65점 미만인 항목이 없습니다</li>`}</ul>
     <div class="metrics">${FKEYS.map(k=>`<div class="metric"><div class="lbl">${FLABEL[k]}</div>
       <div class="bar"><i style="width:${r.m[k]}%;background:${color(r.m[k])}"></i></div>
       <div class="val">${r.m[k]} / 100</div></div>`).join('')}</div>
@@ -1729,6 +1761,8 @@ function renderProbe(r){
   const c=color(r.total);
   const es=FKEYS.map(k=>({k,v:r.m[k]})).sort((a,b)=>b.v-a.v);
   const grade=r.total>=85?'매우 유망한 후보지':r.total>=65?'검토해볼 만한 후보지':'권장하기 어려운 지역';
+  const goodFactors=es.slice(0,3).filter(e=>e.v>=65);
+  const badFactors=es.slice(-3).reverse().filter(e=>e.v<65);
   mpanelIn.innerHTML=`
     <div class="p-eyebrow"><span>지점 평가 // ${r.lat.toFixed(2)}°, ${r.lng.toFixed(2)}°</span>
       <span class="p-close" id="cbtn">닫기 ✕</span></div>
@@ -1737,9 +1771,13 @@ function renderProbe(r){
     <div class="score-block"><div class="num" style="color:${c}">${r.total.toFixed(1)}<small>/100</small></div>
       <div class="stars" style="color:${c}">${stars(r.total)}</div></div>
     <div class="sec-t">유리한 조건</div>
-    <ul class="flist good">${es.slice(0,3).map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <ul class="flist good">${goodFactors.length
+      ? goodFactors.map(e=>`<li><span class="mk">✓</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')
+      : `<li class="flist-empty">65점 이상인 항목이 없습니다</li>`}</ul>
     <div class="sec-t">불리한 조건</div>
-    <ul class="flist bad">${es.slice(-3).reverse().map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')}</ul>
+    <ul class="flist bad">${badFactors.length
+      ? badFactors.map(e=>`<li><span class="mk">△</span>${FLABEL[e.k]} ${e.v}점</li>`).join('')
+      : `<li class="flist-empty">65점 미만인 항목이 없습니다</li>`}</ul>
     <div class="metrics">${FKEYS.map(k=>`<div class="metric"><div class="lbl">${FLABEL[k]}</div>
       <div class="bar"><i style="width:${r.m[k]}%;background:${color(r.m[k])}"></i></div>
       <div class="val">${r.m[k]} / 100</div></div>`).join('')}</div>
@@ -2672,6 +2710,8 @@ function buildCompare(){
       syncPick(); renderCompareTable();
     });
     box.dataset.init='1';
+    const details=$('cmpPickerDetails');
+    if(details && window.innerWidth<=820) details.removeAttribute('open');
   }
   syncPick(); renderCompareTable();
 }
@@ -2682,6 +2722,19 @@ function syncPick(){
     b.setAttribute('aria-pressed', i>=0);
     b.style.borderColor = i>=0 ? SERIES_COLORS[i%SERIES_COLORS.length] : '';
     b.style.color = i>=0 ? SERIES_COLORS[i%SERIES_COLORS.length] : '';
+  });
+  renderSelected();
+}
+function renderSelected(){
+  const box=$('cmpSelected'); if(!box) return;
+  box.innerHTML=picked.map((n,i)=>{
+    const col=SERIES_COLORS[i%SERIES_COLORS.length];
+    return `<button class="schip" data-n="${esc(n)}" style="border-color:${col};color:${col}">
+      ${esc(n)}<span class="x">✕</span></button>`;
+  }).join('');
+  box.querySelectorAll('.schip').forEach(b=>b.onclick=()=>{
+    const n=b.dataset.n, i=picked.indexOf(n);
+    if(i>=0 && picked.length>1){ picked.splice(i,1); syncPick(); renderCompareTable(); }
   });
 }
 function rankTrend(names){

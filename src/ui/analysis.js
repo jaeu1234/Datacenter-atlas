@@ -231,6 +231,9 @@ function buildCompare(){
       syncPick(); renderCompareTable();
     });
     box.dataset.init='1';
+    // 좁은 화면에서는 국가 목록이 화면을 다 채워 차트가 한참 아래로 밀리므로 기본은 접어 둔다.
+    const details=$('cmpPickerDetails');
+    if(details && window.innerWidth<=820) details.removeAttribute('open');
   }
   syncPick(); renderCompareTable();
 }
@@ -241,6 +244,20 @@ function syncPick(){
     b.setAttribute('aria-pressed', i>=0);
     b.style.borderColor = i>=0 ? SERIES_COLORS[i%SERIES_COLORS.length] : '';
     b.style.color = i>=0 ? SERIES_COLORS[i%SERIES_COLORS.length] : '';
+  });
+  renderSelected();
+}
+// 접힌 국가 목록을 열지 않아도 현재 선택을 보고 뺄 수 있도록 요약 칩을 항상 보여준다.
+function renderSelected(){
+  const box=$('cmpSelected'); if(!box) return;
+  box.innerHTML=picked.map((n,i)=>{
+    const col=SERIES_COLORS[i%SERIES_COLORS.length];
+    return `<button class="schip" data-n="${esc(n)}" style="border-color:${col};color:${col}">
+      ${esc(n)}<span class="x">✕</span></button>`;
+  }).join('');
+  box.querySelectorAll('.schip').forEach(b=>b.onclick=()=>{
+    const n=b.dataset.n, i=picked.indexOf(n);
+    if(i>=0 && picked.length>1){ picked.splice(i,1); syncPick(); renderCompareTable(); }
   });
 }
 // 시나리오별 순위 변화 (기울기 그래프)
