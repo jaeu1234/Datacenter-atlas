@@ -214,7 +214,9 @@ function gridVis(){
 }
 function paintGrid(){
   if(filterMode==='off'){
-    if(map.hasLayer(gridLayer)) map.removeLayer(gridLayer);
+    // 레이어를 지도에서 통째로 뗐다 다시 붙이면(2천여 개 사각형) 30~40ms가 걸린다.
+    // 실제 재계산은 3ms도 안 걸리므로, 떼지 말고 투명하게만 만들어 둔다.
+    if(gridRects) gridRects.forEach(r=>r.setStyle({fillOpacity:0}));
     document.getElementById('gridHint').style.display='none';
     renderLegend(); return;
   }
@@ -226,7 +228,7 @@ function paintGrid(){
     });
     Object.values(markers).forEach(mk=>mk.setZIndexOffset(1000));
   }else{
-    gridRects.forEach(r=>r.setStyle({fillColor:heat(cellValue(r._m,filterMode))}));
+    gridRects.forEach(r=>r.setStyle({fillColor:heat(cellValue(r._m,filterMode)),fillOpacity:0.5}));
   }
   if(!map.hasLayer(gridLayer)) gridLayer.addTo(map);
   gridVis(); renderLegend();
