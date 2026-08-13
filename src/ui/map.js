@@ -339,7 +339,20 @@ function tempScore(t){ return Math.round(Math.max(5,Math.min(100,100-(t+5)*(92/3
 
 function closePanel(){
   if(activeId!==null){ document.getElementById(`mk-${activeId}`)?.classList.remove('selected'); activeId=null; }
+  if(probeMarker){ map.removeLayer(probeMarker); probeMarker=null; }
   mpanel.classList.remove('open');
+  document.getElementById('map').classList.remove('panel-open');
+}
+// 패널이 열려 있는 동안 범례·필터를 숨겨야 하는 화면 폭인지는 CSS(.panel-open)가 판단한다.
+function openPanel(){
+  mpanel.classList.add('open');
+  document.getElementById('map').classList.add('panel-open');
+}
+// 지도를 클릭·롱프레스한 위치, 또는 검색으로 고른 국가 위치에 표시하는 공용 핀
+function placePin(ll){
+  if(probeMarker) map.removeLayer(probeMarker);
+  probeMarker=L.marker(ll,{icon:L.divIcon({className:'',iconSize:[18,18],iconAnchor:[9,9],
+    html:'<div class="probe-pin"><div class="probe-core"></div><div class="probe-ring"></div></div>'})}).addTo(map);
 }
 // 실제 운영 중인 지점은 인프라가 이미 갖춰져 있으므로 원거리 감점을 적용하지 않는다
 function siteEval(s){
@@ -362,6 +375,12 @@ function cityLabel(g){
   g.sites.forEach(x=>cnt[x.pl]=(cnt[x.pl]||0)+1);
   return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
 }
+// 25km 반경 묶음은 국경을 넘기도 하므로(예: 싱가포르·조호르), 그 중 가장 많은 국가를 대표로 쓴다.
+function countryLabel(g){
+  const cnt={};
+  g.sites.forEach(x=>cnt[x.ct]=(cnt[x.ct]||0)+1);
+  return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
+}
 
 // 묶음 카드: 여러 지점이면 목록을 먼저 보여주고, 고른 지점의 상세를 아래에 붙인다
 function openGroup(gid, siteId){
@@ -382,11 +401,13 @@ function openGroup(gid, siteId){
   const goodFactors=es.slice(0,3).filter(e=>e.v>=65);
   const badFactors=es.slice(-3).reverse().filter(e=>e.v<65);
 
+  const mainCountry = g.sites.length>1 ? countryLabel(g) : s.ct;
+  const countryCount = new Set(g.sites.map(x=>x.ct)).size;
   const list = g.sites.length>1 ? `
     <div class="sec-t">이 지역의 데이터센터 ${g.sites.length}곳</div>
     <div class="grp-list">${ranked.map(o=>`
       <button class="grp-item ${o.x.id===s.id?'on':''}" data-sid="${o.x.id}">
-        <span class="gi-nm">${esc(o.x.co)} <em>${esc(o.x.pl)}</em></span>
+        <span class="gi-nm">${esc(o.x.co)} <em>${esc(o.x.pl)}${o.x.ct!==mainCountry?` · ${esc(o.x.ct)}`:''}</em></span>
         <span class="gi-sc" style="color:${color(o.r.total)}">${o.r.total.toFixed(1)}</span>
       </button>`).join('')}</div>` : '';
 
@@ -394,8 +415,8 @@ function openGroup(gid, siteId){
     <div class="p-eyebrow"><span>운영 중 데이터센터${g.sites.length>1?` // ${g.sites.length}곳`:''}</span>
       <span class="p-close" id="cbtn">닫기 ✕</span></div>
     ${g.sites.length>1
-      ? `<h2>${esc(s.ct)} · ${esc(cityLabel(g))}</h2>
-         <div class="sub">서로 다른 사업자 ${g.sites.length}곳이 모여 있습니다</div>`
+      ? `<h2>${esc(mainCountry)} · ${esc(cityLabel(g))}</h2>
+         <div class="sub">서로 다른 사업자 ${g.sites.length}곳이 모여 있습니다${countryCount>1?` · ${countryCount}개국에 걸쳐 있음`:''}</div>`
       : `<h2>${esc(s.co)} ${esc(s.pl)}</h2><div class="sub">${esc(s.ct)} · ${grade}</div>`}
     ${list}
     ${g.sites.length>1
@@ -423,7 +444,7 @@ function openGroup(gid, siteId){
       <b style="color:var(--ink)">${PURPOSES.find(p=>p.id===activePurpose)?.name || '사용자 지정'}</b>
       가중치 기준이라, 분석 탭에서 목적을 바꾸면 이 점수도 함께 달라집니다.
       ${g.sites.length>1?`<br><br>같은 도시에 ${g.sites.length}곳이 모여 있어 지도에서는 하나로 묶어 표시합니다.`:''}</div>`;
-  mpanel.classList.add('open');
+  openPanel();
   document.getElementById('cbtn').onclick=closePanel;
   mpanelIn.querySelectorAll('.grp-item').forEach(b=>
     b.onclick=()=>openGroup(gid, +b.dataset.sid));
@@ -505,16 +526,14 @@ function renderProbe(r){
       나머지 항목은 가장 가까운 기준 국가인 <b style="color:var(--ink)">${r.ref.n.replace('\n','')}</b>의 값을 사용했고,
       ${r.rem>0.15?'주요 인프라 중심지에서 떨어져 있어 전력망·통신을 감점했습니다.':'인프라 감점은 적용하지 않았습니다.'}
       현재 <b style="color:var(--ink)">${PURPOSES.find(p=>p.id===activePurpose)?.name || '사용자 지정'}</b> 가중치 기준입니다.</div>`;
-  mpanel.classList.add('open');
+  openPanel();
   document.getElementById('cbtn').onclick=closePanel;
 }
 async function probeAt(ll){
   if(activeId!==null){ document.getElementById(`mk-${activeId}`)?.classList.remove('selected'); activeId=null; }
-  if(probeMarker) map.removeLayer(probeMarker);
-  probeMarker=L.marker(ll,{icon:L.divIcon({className:'',iconSize:[18,18],iconAnchor:[9,9],
-    html:'<div class="probe-pin"><div class="probe-core"></div><div class="probe-ring"></div></div>'})}).addTo(map);
+  placePin(ll);
   mpanelIn.innerHTML='<div class="placeholder"><div class="glyph"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg></div><p>이 지점을 평가하는 중입니다…</p></div>';
-  mpanel.classList.add('open');
+  openPanel();
   renderProbe(await evalPoint(ll.lat,ll.lng));
 }
 map.on('contextmenu',e=>probeAt(e.latlng));
@@ -575,19 +594,21 @@ function runSearch(q){
     const h=hits[+el.dataset.i];
     map.flyTo([h.lat,h.lng], Math.max(map.getZoom(), 4.5), {duration:0.8});
     if(h.type==='site') selectSite(h.id);
-    else { selected=h.n; invalidateRank(); updateRankList(); buildDetail(); showCountryCard(h.n); }
+    else { selected=h.n; invalidateRank(); updateRankList(); buildDetail(); showCountryCard(h.n, {lat:h.lat,lng:h.lng}); }
     $('searchInput').value=''; box.style.display='none';
   });
 }
 
 /* ---- 지도에서 국가를 누르면 국가 카드 ---- */
-function showCountryCard(name){
+function showCountryCard(name, ll){
   const c=ranked().find(x=>x.n===name); if(!c) return;
   const sites=sitesInCountry(name), col=color(c.score);
   // 최고·최저 항목을 한 번만 계산한다
   const bestKey=FKEYS.reduce((a,k)=>c[k]>c[a]?k:a);
   const worstKey=FKEYS.reduce((a,k)=>c[k]<c[a]?k:a);
-  if(probeMarker){ map.removeLayer(probeMarker); probeMarker=null; }
+  // 클릭·검색으로 이 카드를 연 위치를 지도에 핀으로 남겨, 패널 내용과 지도 위 지점을 다시 연결할 수 있게 한다
+  if(ll) placePin(ll);
+  else if(probeMarker){ map.removeLayer(probeMarker); probeMarker=null; }
   mpanelIn.innerHTML=`
     <div class="p-eyebrow"><span>국가 분석 // ${c.region||''}</span>
       <span class="p-close" id="cbtn">닫기 ✕</span></div>
@@ -614,7 +635,7 @@ function showCountryCard(name){
       반면 ${FLABEL[worstKey]} 항목은 ${c[worstKey]}점으로 가장 취약합니다.</div>
     <button class="mini-btn" id="openInAnalysis" style="margin-top:14px;width:100%">
       분석 탭에서 자세히 보기</button>`;
-  mpanel.classList.add('open');
+  openPanel();
   $('cbtn').onclick=closePanel;
   $('openInAnalysis').onclick=()=>{
     selected=c.n; invalidateRank();
@@ -632,7 +653,7 @@ map.on('click', e=>{
   const {ref,dist}=nearest(e.latlng.lat, e.latlng.lng, true);
   if(dist>900) return;
   if(nearestSea(e.latlng.lat, e.latlng.lng) < dist) return;  // 바다를 눌렀으면 무시
-  if(RANKED_SET.find(c=>c.n===ref.n)) showCountryCard(ref.n); // 분석 탭 선택은 건드리지 않는다
+  if(RANKED_SET.find(c=>c.n===ref.n)) showCountryCard(ref.n, e.latlng); // 분석 탭 선택은 건드리지 않는다
 });
 
 /* ---- 공유 링크 ---- */

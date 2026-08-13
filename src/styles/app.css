@@ -594,4 +594,10 @@ section.closed > *:not(.sec-head){display:none !important;}
   .tab,.mini-btn,.chip,.pchip,.cool-btn,.mode-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
   .sr{min-height:44px;}
   .scroll{padding:16px 13px 40px;}
+
+  /* 상세 패널이 56% 높이로 올라오면 남은 지도 영역이 매우 좁아지므로,
+     그 좁은 영역을 범례·필터 패널이 차지하지 않도록 패널이 열려 있는 동안 숨긴다. */
+  #map.panel-open .legend,
+  #map.panel-open .site-filter,
+  #map.panel-open .filter-panel{display:none;}
 }
