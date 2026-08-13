@@ -594,7 +594,14 @@ function runSearch(q){
     const h=hits[+el.dataset.i];
     map.flyTo([h.lat,h.lng], Math.max(map.getZoom(), 4.5), {duration:0.8});
     if(h.type==='site') selectSite(h.id);
-    else { selected=h.n; invalidateRank(); updateRankList(); buildDetail(); showCountryCard(h.n, {lat:h.lat,lng:h.lng}); }
+    else {
+      selected=h.n; invalidateRank(); updateRankList(); buildDetail(); showCountryCard(h.n, {lat:h.lat,lng:h.lng});
+      // 비교 탭에 있을 때는 검색창만 비워지고 화면엔 아무 변화가 없어 보이므로,
+      // 검색으로 고른 국가를 비교 목록에도 더한다.
+      if(document.getElementById('comparePane')?.classList.contains('on') && typeof addToCompare==='function'){
+        addToCompare(h.n);
+      }
+    }
     $('searchInput').value=''; box.style.display='none';
   });
 }

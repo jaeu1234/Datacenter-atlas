@@ -129,6 +129,9 @@ function updateRankList(){
 /* 국가 비교용 구분색 — 적합도 등급색(초록/앰버/빨강)과 겹치지 않는 팔레트를 쓴다.
    안 그러면 4번째로 고른 나라가 우연히 빨간 선으로 그려질 때 "나쁜 나라"로 오해할 수 있다. */
 const SERIES_COLORS=['#57C7E8','#8B7FE8','#5B8DEF','#4FC9C0','#C77DEE'];
+// 5개국을 한꺼번에 비교하면 색만으로는(특히 파랑·보라 계열끼리) 구분하기 어려워,
+// 선 굵기·점선 패턴도 함께 달리해 색이 비슷해도 어떤 선인지 구분할 수 있게 한다.
+const SERIES_DASH=['','5 4','1.5 3','8 3 1.5 3','2 2'];
 function radar(items,size=240){
   const cx=size/2,cy=size/2,R=size/2-36,n=FACTORS.length;
   const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/n;return [cx+Math.cos(a)*r,cy+Math.sin(a)*r];};
@@ -136,9 +139,9 @@ function radar(items,size=240){
   [0.25,0.5,0.75,1].forEach(f=>{g+=`<polygon points="${FACTORS.map((_,i)=>pt(i,R*f).join(',')).join(' ')}" fill="none" stroke="rgba(133,178,224,0.18)"/>`;});
   FACTORS.forEach((_,i)=>{const[x,y]=pt(i,R);g+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="rgba(133,178,224,0.18)"/>`;});
   items.forEach((c,si)=>{
-    const col=SERIES_COLORS[si%SERIES_COLORS.length];
+    const col=SERIES_COLORS[si%SERIES_COLORS.length], dash=SERIES_DASH[si%SERIES_DASH.length];
     g+=`<polygon points="${FACTORS.map((f,i)=>pt(i,R*c[f.key]/100).join(',')).join(' ')}"
-        fill="${col}33" stroke="${col}" stroke-width="2"/>`;
+        fill="${col}22" stroke="${col}" stroke-width="2.4" stroke-dasharray="${dash}"/>`;
     if(items.length===1) FACTORS.forEach((f,i)=>{const[x,y]=pt(i,R*c[f.key]/100);
       g+=`<circle cx="${x}" cy="${y}" r="3" fill="${col}"/>`;});
   });
@@ -237,6 +240,14 @@ function buildCompare(){
   }
   syncPick(); renderCompareTable();
 }
+// 헤더 검색으로 국가를 고르는 등, 국가칩을 직접 누르지 않고도 비교 목록에
+// 더할 때 쓰는 공용 진입점. pchip 클릭 핸들러와 같은 규칙(최대 5개)을 따른다.
+function addToCompare(name){
+  if(picked.includes(name)) return;
+  if(picked.length>=5){ alert('최대 5개국까지 비교할 수 있습니다.'); return; }
+  picked.push(name);
+  syncPick(); renderCompareTable();
+}
 function syncPick(){
   document.querySelectorAll('.pchip').forEach(b=>{
     const i=picked.indexOf(b.dataset.n);
@@ -287,21 +298,29 @@ function renderRankTrend(){
     g+=`<line x1="${xs[i]}" y1="${padT}" x2="${xs[i]}" y2="${H-padB}" stroke="rgba(133,178,224,0.14)"/>`;
     g+=`<text x="${xs[i]}" y="${H-9}" style="fill:var(--muted)" font-size="10.5" text-anchor="middle">${lb}</text>`;
   });
+  // 시작·끝 순위 라벨은 SVG viewBox 와 함께 축소되면 좁은 화면(모바일)에서
+  // 글자가 실제로는 7px 안팎까지 줄어 읽기 어려워진다. viewBox 크기와 무관하게
+  // 항상 같은 CSS px 로 보이도록 SVG 밖 HTML 오버레이로 그린다.
+  let labelsHtml='';
   names.forEach((n,si)=>{
     const col=SERIES_COLORS[si%SERIES_COLORS.length], pts=rows[n];
     if(!pts) return;
     g+=`<polyline points="${pts.map((p,i)=>`${xs[i]},${y(p.rank)}`).join(' ')}"
         fill="none" stroke="${col}" stroke-width="2.2"/>`;
     pts.forEach((p,i)=>{ g+=`<circle cx="${xs[i]}" cy="${y(p.rank)}" r="3.5" fill="${col}"/>`; });
-    g+=`<text x="${xs[0]-8}" y="${y(pts[0].rank)+4}" fill="${col}" font-size="10" text-anchor="end">${pts[0].rank}위</text>`;
-    g+=`<text x="${xs[xs.length-1]+8}" y="${y(pts[pts.length-1].rank)+4}" fill="${col}" font-size="10">${esc(n)} ${pts[pts.length-1].rank}위</text>`;
+    const startX=(xs[0]-8)/W*100, startY=y(pts[0].rank)/H*100;
+    const endX=(xs[xs.length-1]+8)/W*100, endY=y(pts[pts.length-1].rank)/H*100;
+    labelsHtml+=`<span class="trend-lbl" style="left:${startX}%;top:${startY}%;color:${col};
+      transform:translate(-100%,-50%)">${pts[0].rank}위</span>`;
+    labelsHtml+=`<span class="trend-lbl" style="left:${endX}%;top:${endY}%;color:${col};
+      transform:translate(0,-50%)">${esc(n)} ${pts[pts.length-1].rank}위</span>`;
   });
   const changes=names.map(n=>{
     const p=rows[n]; if(!p) return '';
     const d=p[0].rank-p[p.length-1].rank;
     return d===0 ? `${n} 변동 없음` : `${n} ${d>0?`${d}계단 상승`:`${-d}계단 하락`}`;
   }).filter(Boolean).join(' · ');
-  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>
+  box.innerHTML=`<div class="trend-chart"><svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">${g}</svg>${labelsHtml}</div>
     <div class="trend-note">2100년까지 ${changes}. 위로 갈수록 높은 순위입니다.
       IPCC SSP2-4.5 경로에 위도별 온난화 증폭을 적용한 결과입니다.</div>`;
 }
@@ -598,7 +617,7 @@ function renderSources(){
         style="color:var(--accent);text-decoration:none">${SOURCES[f.key].n}</a>
         <div style="font-size:10.5px;color:var(--dim);margin-top:2px">${SOURCES[f.key].d}</div></td>
       <td>${SOURCES[f.key].unit || '—'}</td>
-      <td style="color:${SOURCES[f.key].key?'var(--good)':'var(--mid)'}">${SOURCES[f.key].key?'실측':'배정값'}</td></tr>`).join('')}
+      <td style="color:${dataStatus[f.key].status==='real'?'var(--good)':'var(--mid)'}">${dataStatus[f.key].status==='real'?'실측':'배정값'}</td></tr>`).join('')}
     <tr><td>지도</td><td style="text-align:left">OpenStreetMap · CARTO · Esri</td><td>실시간</td></tr>
     </tbody></table>`;
 }
