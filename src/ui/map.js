@@ -562,7 +562,6 @@ mapEl.addEventListener('touchcancel',cancelLongPress,{passive:true});
 document.getElementById('zoomIn').onclick=()=>map.zoomIn();
 document.getElementById('zoomOut').onclick=()=>map.zoomOut();
 document.getElementById('zoomReset').onclick=goHome;
-document.getElementById('mapStyleBtn').onclick=()=>loadTiles(tileIdx+1);
 
 // 축소했을 때 마커가 뭉쳐 보이지 않도록 크기만 조절한다 (지점은 항상 전부 표시)
 function updateMarkerScale(){

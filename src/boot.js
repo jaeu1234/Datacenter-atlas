@@ -86,13 +86,6 @@ $('nbClose').onclick=()=>{ $('dataBanner').style.display='none'; store.set('atla
 
 $('repPreview').onclick=previewReport;
 $('repDownload').onclick=downloadReport;
-$('repStudy').onclick=()=>{
-  const box=$('reportBox');
-  box.style.display='block'; box.textContent=buildStudyReport();
-  box.scrollIntoView({behavior:'smooth',block:'nearest'});
-  download(`study-report-${fileSlug(selected)}-${new Date().toISOString().slice(0,10)}.md`,
-           buildStudyReport(), 'text/markdown;charset=utf-8');
-};
 $('repCSV').onclick=()=>download(
   `datacenter-scores-${new Date().toISOString().slice(0,10)}.csv`, toCSV(), 'text/csv;charset=utf-8');
 $('repPDF').onclick=()=>{

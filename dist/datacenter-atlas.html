@@ -569,7 +569,6 @@ transition:height .3s cubic-bezier(.4,0,.2,1);}
       <button id="zoomIn" aria-label="지도 확대">+</button>
       <button id="zoomOut" aria-label="지도 축소">−</button>
       <button id="zoomReset" aria-label="처음 화면으로"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13 2.5v3h-3"/></svg></button>
-      <button id="mapStyleBtn" aria-label="지도 스타일 바꾸기"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2 2 5.5 8 9l6-3.5L8 2Z"/><path d="M2 9l6 3.5L14 9"/></svg></button>
     </div>
     <div class="ov map-notice" id="mapNotice">
       <b>지도 배경을 불러오지 못했습니다.</b><br>
@@ -689,7 +688,6 @@ transition:height .3s cubic-bezier(.4,0,.2,1);}
       <button class="mini-btn" id="repPreview">미리보기</button>
       <button class="mini-btn primary" id="repDownload">Markdown 내려받기</button>
       <button class="mini-btn" id="repPDF">PDF로 저장</button>
-      <button class="mini-btn" id="repStudy">탐구 보고서 생성</button>
       <button class="mini-btn" id="repCSV">CSV 내려받기</button>
       <button class="mini-btn" id="repShare">분석 결과 링크 복사</button>
     </div>
@@ -1866,7 +1864,6 @@ mapEl.addEventListener('touchcancel',cancelLongPress,{passive:true});
 document.getElementById('zoomIn').onclick=()=>map.zoomIn();
 document.getElementById('zoomOut').onclick=()=>map.zoomOut();
 document.getElementById('zoomReset').onclick=goHome;
-document.getElementById('mapStyleBtn').onclick=()=>loadTiles(tileIdx+1);
 
 function updateMarkerScale(){
   const z=map.getZoom();
@@ -2979,91 +2976,6 @@ function fileSlug(name){
   return c && c.iso ? c.iso : 'unknown';
 }
 
-function buildStudyReport(){
-  const list=ranked(), c=list.find(x=>x.n===selected);
-  const p=PURPOSES.find(x=>x.id===activePurpose);
-  const real=FKEYS.filter(k=>dataStatus[k].status==='real');
-  const est=FKEYS.filter(k=>dataStatus[k].status!=='real');
-  const sim=simulate(c), best=list[0], simBest=simulate(best);
-  const L=[];
-  L.push('# 데이터센터 최적 입지 탐구 보고서','');
-  L.push(`작성일 ${new Date().toLocaleDateString('ko-KR')}`,'');
-  L.push('## 1. 탐구 동기 및 목적','');
-  L.push('AI 서비스가 늘면서 데이터센터의 전력 소비와 탄소배출이 빠르게 증가하고 있다.');
-  L.push('데이터센터는 한번 지으면 수십 년간 운영되므로 입지 선정이 곧 장기적인 에너지·환경 부담을 결정한다.');
-  L.push('이 탐구는 **기후·전력·재생에너지·통신 인프라 등을 종합했을 때 데이터센터를 어디에 세우는 것이 가장 효율적인지**,');
-  L.push('그리고 **현재 운영 중인 데이터센터의 입지는 얼마나 적합한지**를 정량적으로 평가하는 것을 목적으로 한다.','');
-  L.push('## 2. 탐구 방법','');
-  L.push(`- 평가 대상: ${list.length}개국, 실제 운영 중인 데이터센터 ${SITES.length}곳 (${new Set(SITES.map(x=>x.co)).size}개 사업자)`);
-  L.push(`- 평가 항목: ${FACTORS.length}개 (${FACTORS.map(f=>f.label).join(', ')})`);
-  L.push(`- 가중치 기준: ${p?p.name:'사용자 지정'}`);
-  L.push(`- 기후 시나리오: ${ERAS[era].label}${era!=='now'?` (전지구 평균 +${ERAS[era].dt}°C, 위도별 증폭 적용)`:''}`);
-  L.push(`- 지표 중복 보정: ${decorrelate?'적용':'미적용'}`,'');
-  L.push('### 2-1. 점수 계산식','');
-  L.push('```');
-  L.push('최종점수 = Σ (항목 점수 × 유효 가중치) ÷ 가중치 합계');
-  FACTORS.forEach(f=>L.push(`  ${f.label} ${c[f.key]}점 × ${weights[f.key]}%`));
-  L.push(`  = ${c.score.toFixed(2)}점`);
-  L.push('```','');
-  L.push('### 2-2. 사용한 데이터','');
-  methodologyTable().forEach(r=>L.push(r));
-  L.push('');
-  L.push('## 3. 분석 결과','');
-  L.push('### 3-1. 상위 10개국','');
-  L.push('| 순위 | 국가 | 총점 | 운영 중 DC |'); L.push('|---:|---|---:|---:|');
-  list.slice(0,10).forEach((x,i)=>L.push(`| ${i+1} | ${x.n} | ${x.score.toFixed(1)} | ${sitesInCountry(x.n).length} |`));
-  L.push('');
-  L.push('### 3-2. 선택 국가 상세 분석','');
-  L.push(`**${c.n}** — 총점 ${c.score.toFixed(1)}점 (${list.findIndex(x=>x.n===c.n)+1}위)`,'');
-  FACTORS.forEach(f=>L.push(`- ${f.label} ${c[f.key]}점: ${reasonOf(f.key,c[f.key])}`));
-  L.push('');
-  L.push('### 3-3. 운영 시뮬레이션 (IT 부하 ' + itMW + 'MW, ' + COOLING[coolingMode].name + ')','');
-  L.push('| 항목 | ' + c.n + ' | ' + best.n + '(1위) |'); L.push('|---|---:|---:|');
-  L.push(`| PUE | ${sim.pue.toFixed(2)} | ${simBest.pue.toFixed(2)} |`);
-  L.push(`| 연간 전력 | ${sim.annualGWh.toFixed(0)} GWh | ${simBest.annualGWh.toFixed(0)} GWh |`);
-  L.push(`| 연간 전기요금 | $${sim.costM.toFixed(0)}M | $${simBest.costM.toFixed(0)}M |`);
-  L.push(`| 연간 탄소배출 | ${Math.round(sim.tonsCO2).toLocaleString()} tCO₂ | ${Math.round(simBest.tonsCO2).toLocaleString()} tCO₂ |`);
-  L.push('');
-  L.push('### 3-4. 모델 평가와 실제 투자의 비교','');
-  const noDC=list.filter(x=>sitesInCountry(x.n).length===0).slice(0,3);
-  const manyDC=list.map(x=>({n:x.n,r:list.findIndex(y=>y.n===x.n)+1,k:sitesInCountry(x.n).length}))
-                   .filter(x=>x.k>=3).sort((a,b)=>b.r-a.r).slice(0,3);
-  L.push(`점수가 높지만 데이터센터가 없는 국가: ${noDC.map(x=>x.n).join(', ')}`);
-  L.push(`점수가 낮지만 데이터센터가 몰린 국가: ${manyDC.map(x=>`${x.n}(${x.r}위·${x.k}곳)`).join(', ')}`);
-  L.push('');
-  L.push('이는 입지 점수만으로 실제 투자를 설명할 수 없음을 보여준다.');
-  L.push('기업은 냉각 효율보다 **이용자와의 거리(지연시간), 시장 규모, 규제 환경**을 우선하는 경우가 많다.','');
-  L.push('## 4. 결론','');
-  L.push(`${p?p.name:'현재 설정'} 기준으로 가장 적합한 입지는 **${best.n}**(${best.score.toFixed(1)}점)이다.`);
-  L.push('북유럽 국가들이 상위권을 차지하는 이유는 낮은 기온, 풍부한 수력·풍력, 안정적인 전력망이 동시에 갖춰져 있기 때문이다.');
-  L.push('그러나 이 세 조건은 서로 상관이 높아 단순 가중합에서는 중복 가산되는 문제가 있었고,');
-  L.push('상관계수를 확인해 유효 가중치를 조정한 결과 순위 격차가 줄어들었다.','');
-  L.push('## 5. 탐구의 한계','');
-  L.push(`- ${FACTORS.length}개 항목 중 ${real.length}개만 실측 데이터이며, ${est.map(k=>FLABEL[k]).join('·')}는 공개 통계를 참고한 추정값이다.`);
-  L.push('- 지표를 0–100으로 정규화하는 기준이 항목마다 달라 절대적 비교에는 한계가 있다.');
-  L.push('- 국가 단위 평균값을 사용해, 같은 나라 안의 지역차(예: 미국 오리건과 애리조나)를 반영하지 못한다.');
-  L.push('- 기후 시나리오는 IPCC 전지구 평균에 위도별 증폭을 적용한 단순 모델이며, 지역 기후모델이 아니다.');
-  L.push('- 정치적 안정성, 데이터 주권 규제, 인력 확보 가능성 등 정량화하기 어려운 요인은 제외했다.','');
-  L.push('## 6. 개선 방향','');
-  L.push('- IEA·Ember의 유료/신청 기반 API를 확보해 전력 단가와 발전 믹스를 실측으로 교체');
-  L.push('- 국가 단위가 아닌 격자(위경도) 단위 기후·전력 데이터로 해상도를 높이기');
-  L.push('- 해저케이블 경로와 변전소 위치를 반영해 통신·전력 접근성을 지점 단위로 계산');
-  L.push('- 주성분분석(PCA) 등으로 지표 중복을 통계적으로 처리');
-  L.push('- 실제 데이터센터의 공개된 PUE 값과 모델 추정치를 비교해 검증','');
-  L.push('## 7. 참고문헌','');
-  ['International Energy Agency (IEA), Electricity Information. https://www.iea.org/',
-   'Ember, Global Electricity Review. https://ember-energy.org/',
-   'World Bank Open Data. https://data.worldbank.org/',
-   'World Resources Institute, Aqueduct Water Risk Atlas. https://www.wri.org/aqueduct',
-   'Bündnis Entwicklung Hilft, WorldRiskReport. https://weltrisikobericht.de/',
-   'Ookla, Speedtest Global Index. https://www.speedtest.net/global-index',
-   'Open-Meteo, Historical Weather API. https://open-meteo.com/',
-   'IPCC, AR6 Synthesis Report. https://www.ipcc.ch/report/ar6/syr/',
-   'Uptime Institute, Global Data Center Survey.',
-  ].forEach((r,i)=>L.push(`${i+1}. ${r}`));
-  return L.join('\n');
-}
-
 function downloadReport(){
   const md=buildReport();
   const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});
@@ -3281,13 +3193,6 @@ $('nbClose').onclick=()=>{ $('dataBanner').style.display='none'; store.set('atla
 
 $('repPreview').onclick=previewReport;
 $('repDownload').onclick=downloadReport;
-$('repStudy').onclick=()=>{
-  const box=$('reportBox');
-  box.style.display='block'; box.textContent=buildStudyReport();
-  box.scrollIntoView({behavior:'smooth',block:'nearest'});
-  download(`study-report-${fileSlug(selected)}-${new Date().toISOString().slice(0,10)}.md`,
-           buildStudyReport(), 'text/markdown;charset=utf-8');
-};
 $('repCSV').onclick=()=>download(
   `datacenter-scores-${new Date().toISOString().slice(0,10)}.csv`, toCSV(), 'text/csv;charset=utf-8');
 $('repPDF').onclick=()=>{
