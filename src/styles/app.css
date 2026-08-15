@@ -16,6 +16,7 @@ body{
   background:var(--bg); color:var(--ink);
   font-family:'Inter','Apple SD Gothic Neo',sans-serif;
   display:flex; flex-direction:column; height:100dvh; overflow:hidden;
+  word-break:keep-all;
 }
 
 /* ---------- header + tabs ---------- */
