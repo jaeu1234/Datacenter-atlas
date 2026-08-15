@@ -410,7 +410,9 @@ function buildReport(){
   L.push(c.score>=80
     ? `${c.n}는 ${p?p.name:'설정한 기준'}에 부합하는 우수한 입지다. ${strong.map(f=>f.label).join(', ')} 항목에서 특히 강점을 보인다.`
     : c.score>=65
-    ? `${c.n}는 조건부로 적합하다. ${weak.map(f=>f.label).join(', ')} 항목의 보완 대책이 전제되어야 한다.`
+    ? (weak.length
+        ? `${c.n}는 조건부로 적합하다. ${weak.map(f=>f.label).join(', ')} 항목의 보완 대책이 전제되어야 한다.`
+        : `${c.n}는 조건부로 적합하다. 55점 미만인 뚜렷한 약점 항목은 없지만, 총점이 우수 등급(80점)에는 못 미친다.`)
     : `${c.n}는 현재 기준에서 권장하기 어렵다. 상위 후보인 ${list[0].n}(${list[0].score.toFixed(1)}점)와 비교 검토가 필요하다.`);
   L.push('');
   L.push('---','');
