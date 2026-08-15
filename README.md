@@ -123,7 +123,7 @@ IPCC 중간 경로(SSP2-4.5)를 참고해 2035년 +1.1℃, 2050년 +2.2℃를 �
 
 ## 기술 구성
 
-- 단일 HTML 파일 (약 125KB), 빌드 도구 불필요
+- 단일 HTML 파일 (약 184KB, gzip 전송 시 약 57KB), 빌드 도구 불필요
 - 외부 의존성: Leaflet 1.9.4 (CDN)
 - 실시간 기상 데이터: Open-Meteo API (API 키 불필요)
 - 레이더 차트·기울기 그래프는 SVG로 직접 구현
@@ -147,8 +147,8 @@ node tests/run.js  # 브라우저 없이 전체 실행 + 자체 점검 23항목
 ```
 src/
   00-helpers.js                  공용 헬퍼, 오류 핸들러
-  data/countries-and-sites.js    국가·데이터센터 원자료      (31KB)
-  core/state-and-scoring.js      상태·점수 계산·시나리오     (4.3KB)
+  data/countries-and-sites.js    국가·데이터센터 원자료      (37KB)
+  core/state-and-scoring.js      상태·점수 계산·시나리오     (5.8KB)
   ui/tabs.js  map.js  modules.js  analysis.js
   tests/selftest.js              브라우저에서 도는 자체 점검
   boot.js                        초기화·배선
