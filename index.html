@@ -1868,6 +1868,8 @@ function renderProbe(r){
   document.getElementById('cbtn').onclick=closePanel;
 }
 async function probeAt(ll){
+  const {dist}=nearest(ll.lat, ll.lng, true);
+  if(dist>900 || nearestSea(ll.lat, ll.lng)<dist) return;
   if(activeId!==null){ document.getElementById(`mk-${activeId}`)?.classList.remove('selected'); activeId=null; }
   placePin(ll);
   mpanelIn.innerHTML='<div class="placeholder"><div class="glyph"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg></div><p>이 지점을 평가하는 중입니다…</p></div>';
@@ -1911,9 +1913,10 @@ map.on('zoomend',()=>{ if(zRaf) cancelAnimationFrame(zRaf);
   zRaf=requestAnimationFrame(()=>{ labelScale(); labelVis(); gridVis(); zRaf=null; }); });
 labelScale(); labelVis();
 
+const COUNTRY_ALIASES = { '대한민국':'한국', '남아프리카공화국':'남아공' };
 const SEARCH_INDEX = [
-  ...RANKED_SET.map(c=>({label:c.n, sub:c.region||'국가', lat:c.lat, lng:c.lng, type:'country', n:c.n})),
-  ...SITES.map(s=>({label:`${s.co} ${s.pl}`, sub:s.ct, lat:s.lat, lng:s.lng, type:'site', id:s.id})),
+  ...RANKED_SET.map(c=>({label:c.n, sub:c.region||'국가', alias:COUNTRY_ALIASES[c.n]||'', lat:c.lat, lng:c.lng, type:'country', n:c.n})),
+  ...SITES.map(s=>({label:`${s.co} ${s.pl}`, sub:s.ct, alias:'', lat:s.lat, lng:s.lng, type:'site', id:s.id})),
 ];
 let searchHits=[], searchActiveIdx=-1;
 function setSearchExpanded(open){ $('searchInput').setAttribute('aria-expanded', open?'true':'false'); }
@@ -1967,7 +1970,8 @@ function runSearch(q){
   searchActiveIdx=-1;
   if(!term){ box.innerHTML=''; box.style.display='none'; setSearchExpanded(false); searchHits=[]; return; }
   const hits=SEARCH_INDEX.filter(x=>
-    x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)).slice(0,7);
+    x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)
+    || (x.alias||'').toLowerCase().includes(term)).slice(0,7);
   searchHits=hits;
   if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; setSearchExpanded(true); return; }
   box.innerHTML=hits.map((h,i)=>

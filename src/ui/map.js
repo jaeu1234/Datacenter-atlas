@@ -553,6 +553,10 @@ function renderProbe(r){
   document.getElementById('cbtn').onclick=closePanel;
 }
 async function probeAt(ll){
+  // 좌클릭(지도 클릭)과 같은 육지/바다 판정을 적용한다 — 이게 없으면 우클릭·롱프레스로는
+  // 바다 한가운데를 눌러도 "지점 평가" 패널이 그럴듯하게 떠 버린다.
+  const {dist}=nearest(ll.lat, ll.lng, true);
+  if(dist>900 || nearestSea(ll.lat, ll.lng)<dist) return;
   if(activeId!==null){ document.getElementById(`mk-${activeId}`)?.classList.remove('selected'); activeId=null; }
   placePin(ll);
   mpanelIn.innerHTML='<div class="placeholder"><div class="glyph"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg></div><p>이 지점을 평가하는 중입니다…</p></div>';
@@ -598,9 +602,12 @@ map.on('zoomend',()=>{ if(zRaf) cancelAnimationFrame(zRaf);
 labelScale(); labelVis();
 
 /* ---- 검색 ---- */
+// 공식 표기의 연속된 부분 문자열이 아닌 구어체 국명 — 예: "대한민국"은 '한'과 '국' 사이에
+// '민'이 끼어 있어 "한국"으로 검색해도 부분 문자열 매칭에 걸리지 않는다.
+const COUNTRY_ALIASES = { '대한민국':'한국', '남아프리카공화국':'남아공' };
 const SEARCH_INDEX = [
-  ...RANKED_SET.map(c=>({label:c.n, sub:c.region||'국가', lat:c.lat, lng:c.lng, type:'country', n:c.n})),
-  ...SITES.map(s=>({label:`${s.co} ${s.pl}`, sub:s.ct, lat:s.lat, lng:s.lng, type:'site', id:s.id})),
+  ...RANKED_SET.map(c=>({label:c.n, sub:c.region||'국가', alias:COUNTRY_ALIASES[c.n]||'', lat:c.lat, lng:c.lng, type:'country', n:c.n})),
+  ...SITES.map(s=>({label:`${s.co} ${s.pl}`, sub:s.ct, alias:'', lat:s.lat, lng:s.lng, type:'site', id:s.id})),
 ];
 // 화살표 키 탐색·Enter 선택을 지원하려면 지금 보여준 결과 목록과 그중 몇 번째가
 // 골라져 있는지를 runSearch 밖(키보드 핸들러)에서도 알아야 한다.
@@ -664,7 +671,8 @@ function runSearch(q){
   searchActiveIdx=-1;
   if(!term){ box.innerHTML=''; box.style.display='none'; setSearchExpanded(false); searchHits=[]; return; }
   const hits=SEARCH_INDEX.filter(x=>
-    x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)).slice(0,7);
+    x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)
+    || (x.alias||'').toLowerCase().includes(term)).slice(0,7);
   searchHits=hits;
   if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; setSearchExpanded(true); return; }
   box.innerHTML=hits.map((h,i)=>
