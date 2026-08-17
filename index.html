@@ -110,8 +110,7 @@ color:#7A8798;margin-bottom:8px;}
 .scale{display:flex;height:9px;border-radius:2px;overflow:hidden;margin-top:2px;width:150px;}
 .scale i{flex:1;}
 .scale-lb{display:flex;justify-content:space-between;font-size:var(--fs-1);color:#7A8798;margin-top:4px;}
-.filter-panel{left:254px;top:var(--sf-top,112px);bottom:auto;padding:10px 12px;max-width:210px;
-transition:top .15s ease;}
+.filter-panel{left:254px;bottom:14px;padding:10px 12px;max-width:210px;}
 .f-title{font-size:var(--fs-1);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
 color:#7A8798;margin-bottom:8px;}
 .f-hint{font-size:var(--fs-1);color:#7A8798;margin-top:8px;line-height:1.45;}
@@ -485,8 +484,8 @@ transition:all .15s;}
 .cool-btn:hover{border-color:var(--accent);}
 .cool-btn.on{background:var(--accent);border-color:var(--accent);color:#062430;font-weight:600;}
 .sim-input label{margin-bottom:9px;}
-.site-filter{left:14px;top:var(--sf-top,112px);padding:9px 11px;display:flex;gap:6px;
-align-items:center;flex-wrap:wrap;max-width:230px;transition:top .15s ease;}
+.site-filter{left:14px;bottom:14px;padding:9px 11px;display:flex;gap:6px;
+align-items:center;flex-wrap:wrap;max-width:230px;}
 .site-filter select{background:#fff;color:#3B4551;border:1px solid #E1E6EC;border-radius:6px;
 padding:5px 8px;font-size:var(--fs-2);font-family:inherit;cursor:pointer;max-width:105px;}
 .sf-count{font-size:var(--fs-1);color:#7A8798;width:100%;}
@@ -1584,8 +1583,6 @@ function renderLegend(){
     b.innerHTML=`<div class="scale">${[40,50,60,70,80,90].map(v=>`<i style="background:${heat(v)}"></i>`).join('')}</div>
       <div class="scale-lb"><span>◀ 낮음 (40)</span><span>높음 (90) ▶</span></div>`;
   }
-  const legend=document.querySelector('.legend');
-  if(legend) document.documentElement.style.setProperty('--sf-top', (legend.offsetHeight+24)+'px');
 }
 function renderFilters(){
   const el=document.getElementById('filterSelect');
@@ -1597,7 +1594,6 @@ function renderFilters(){
   el.value=filterMode;
 }
 renderFilters(); renderLegend();
-if(document.fonts && document.fonts.ready) document.fonts.ready.then(renderLegend);
 
 let coFilter='all', regionFilter='all';
 let _companies=null, _regions=null;

@@ -113,8 +113,7 @@ header{
 .scale i{flex:1;}
 .scale-lb{display:flex;justify-content:space-between;font-size:var(--fs-1);color:#7A8798;margin-top:4px;}
 
-.filter-panel{left:254px;top:var(--sf-top,112px);bottom:auto;padding:10px 12px;max-width:210px;
-  transition:top .15s ease;}
+.filter-panel{left:254px;bottom:14px;padding:10px 12px;max-width:210px;}
 .f-title{font-size:var(--fs-1);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
   color:#7A8798;margin-bottom:8px;}
 .f-hint{font-size:var(--fs-1);color:#7A8798;margin-top:8px;line-height:1.45;}
@@ -567,8 +566,8 @@ section.closed > *:not(.sec-head){display:none !important;}
 .sim-input label{margin-bottom:9px;}
 
 /* ---------- 기업·지역 필터 ---------- */
-.site-filter{left:14px;top:var(--sf-top,112px);padding:9px 11px;display:flex;gap:6px;
-  align-items:center;flex-wrap:wrap;max-width:230px;transition:top .15s ease;}
+.site-filter{left:14px;bottom:14px;padding:9px 11px;display:flex;gap:6px;
+  align-items:center;flex-wrap:wrap;max-width:230px;}
 .site-filter select{background:#fff;color:#3B4551;border:1px solid #E1E6EC;border-radius:6px;
   padding:5px 8px;font-size:var(--fs-2);font-family:inherit;cursor:pointer;max-width:105px;}
 .sf-count{font-size:var(--fs-1);color:#7A8798;width:100%;}
