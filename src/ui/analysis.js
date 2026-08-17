@@ -383,9 +383,6 @@ function renderCompareTable(full=true){
     <tr><td>순위</td>${sel.map(c=>`<td><span class="n">${order.findIndex(x=>x.n===c.n)+1} / ${sel.length}</span></td>`).join('')}</tr>
     </tbody></table>`;
 }
-function updateCompareTotals(){ renderCompareTable(false); }  // 드래그 중: 표만
-function updateCompareWeights(){ renderCompareTable(true); }
-
 /* ---- 보고서 자동 생성 (Markdown) ---- */
 function buildReport(){
   const c=ranked().find(x=>x.n===selected);
@@ -616,9 +613,3 @@ function refresh(scope='weights'){
     if(filterMode!=='off') paintGrid();
   }
 }
-
-/* 외부(실시간 기온 등)에서 부르는 전체 갱신 진입점 */
-function renderRank(){ invalidateRank(); updateRankList(); }
-function renderDetail(){ buildDetail(); }
-function renderCompare(){ renderCompareTable(); }
-

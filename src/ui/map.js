@@ -463,11 +463,34 @@ function selectSite(id){
   openGroup(s._g, id);
 }
 
+// 임의 지점의 최근 1년 실측 기후 프로필 — 연평균기온·프리쿨링(외기 냉방) 가능 일수·
+// 폭염 일수·강수량을 계산한다. 습도는 무료 archive API의 일별 값으로는 안정적으로
+// 구할 수 없어 항상 null로 둔다 (렌더링 쪽에서 null이면 해당 줄을 건너뛴다).
+async function climateProfile(lat,lng){
+  const end=new Date(Date.now()-6*864e5), start=new Date(end-364*864e5);
+  const fmt=d=>d.toISOString().slice(0,10);
+  const url=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
+    +`&start_date=${fmt(start)}&end_date=${fmt(end)}`
+    +`&daily=temperature_2m_mean,temperature_2m_max,precipitation_sum&timezone=UTC`;
+  const res=await fetchTimeout(url);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const d=await res.json();
+  const daily=d && d.daily;
+  const means=((daily&&daily.temperature_2m_mean)||[]).filter(v=>typeof v==='number');
+  if(means.length<200) throw new Error('관측치 부족');   // 결측이 많으면 위도 추정으로 폴백시킨다
+  const maxes=((daily&&daily.temperature_2m_max)||[]).filter(v=>typeof v==='number');
+  const precs=((daily&&daily.precipitation_sum)||[]).filter(v=>typeof v==='number');
+  const annualMean=means.reduce((a,b)=>a+b,0)/means.length;
+  const freeCoolDays=means.filter(v=>v<=18).length;
+  const heatDays=maxes.filter(v=>v>=33).length;
+  const precip=precs.length ? precs.reduce((a,b)=>a+b,0) : null;
+  return {annualMean, freeCoolDays, heatDays, humidity:null, precip, days:means.length};
+}
 async function evalPoint(lat,lng){
   const {ref,dist}=nearest(lat,lng,true);
   let liveC=null, elev=null, clim=null;
   try{
-    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&current=temperature_2m`);
+    const r=await fetchTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&current=temperature_2m`);
     if(r.ok){ const d=await r.json();
       if(d.current&&typeof d.current.temperature_2m==='number') liveC=d.current.temperature_2m;
       if(typeof d.elevation==='number') elev=d.elevation; }
