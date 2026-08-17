@@ -582,6 +582,9 @@ const SEARCH_INDEX = [
 // 화살표 키 탐색·Enter 선택을 지원하려면 지금 보여준 결과 목록과 그중 몇 번째가
 // 골라져 있는지를 runSearch 밖(키보드 핸들러)에서도 알아야 한다.
 let searchHits=[], searchActiveIdx=-1;
+// role="combobox" 는 결과 목록이 펼쳐졌는지를 aria-expanded 로도 알려줘야
+// 스크린리더가 화살표 키 탐색이 가능한 상태라는 걸 안다.
+function setSearchExpanded(open){ $('searchInput').setAttribute('aria-expanded', open?'true':'false'); }
 function selectSearchHit(h){
   map.flyTo([h.lat,h.lng], Math.max(map.getZoom(), 4.5), {duration:0.8});
   if(h.type==='site') selectSite(h.id);
@@ -593,7 +596,7 @@ function selectSearchHit(h){
       addToCompare(h.n);
     }
   }
-  $('searchInput').value=''; $('searchResults').style.display='none';
+  $('searchInput').value=''; $('searchResults').style.display='none'; setSearchExpanded(false);
   $('searchInput').removeAttribute('aria-activedescendant');
   searchHits=[]; searchActiveIdx=-1;
 }
@@ -619,13 +622,15 @@ function searchKeyNav(e){
     highlightSearchActive();
   }else if(e.key==='ArrowUp'){
     e.preventDefault();
-    searchActiveIdx=(searchActiveIdx-1+searchHits.length)%searchHits.length;
+    // 아직 아무것도 안 골랐거나(-1) 첫 항목(0)에서 위로 가면 마지막 항목으로
+    // 순환해야 한다. (searchActiveIdx-1+len)%len 는 -1에서 N-2로 어긋난다.
+    searchActiveIdx = searchActiveIdx<=0 ? searchHits.length-1 : searchActiveIdx-1;
     highlightSearchActive();
   }else if(e.key==='Enter'){
     e.preventDefault();
     selectSearchHit(searchHits[searchActiveIdx>=0?searchActiveIdx:0]);
   }else if(e.key==='Escape'){
-    box.style.display='none';
+    box.style.display='none'; setSearchExpanded(false);
     $('searchInput').removeAttribute('aria-activedescendant');
     searchActiveIdx=-1;
   }
@@ -634,14 +639,14 @@ function runSearch(q){
   const box=$('searchResults');
   const term=q.trim().toLowerCase();
   searchActiveIdx=-1;
-  if(!term){ box.innerHTML=''; box.style.display='none'; searchHits=[]; return; }
+  if(!term){ box.innerHTML=''; box.style.display='none'; setSearchExpanded(false); searchHits=[]; return; }
   const hits=SEARCH_INDEX.filter(x=>
     x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)).slice(0,7);
   searchHits=hits;
-  if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; return; }
+  if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; setSearchExpanded(true); return; }
   box.innerHTML=hits.map((h,i)=>
     `<button type="button" class="sr" role="option" id="sr-item-${i}" data-i="${i}"><span class="sr-nm">${esc(h.label)}</span><span class="sr-sub">${esc(h.sub)}</span></button>`).join('');
-  box.style.display='block';
+  box.style.display='block'; setSearchExpanded(true);
   box.querySelectorAll('.sr').forEach(el=>el.onclick=()=>selectSearchHit(hits[+el.dataset.i]));
 }
 
@@ -720,7 +725,10 @@ function restoreFromURL(){
       const patch={}; FKEYS.forEach((k,i)=>patch[k]=v[i]); setWeights(patch);
     }
   }
-  if(p.get('p') && PURPOSES.find(x=>x.id===p.get('p'))) activePurpose=p.get('p'); else activePurpose=null;
+  // lastPurpose 는 프리셋 칩을 실제로 누른 이력만 반영해야 하므로, URL 복원 시에도 activePurpose 와 함께 맞춘다.
+  // (기본값 'balanced' 를 그대로 두면 커스텀 가중치 링크에서 엉뚱한 프리셋 이름의 되돌리기 힌트가 뜬다.)
+  if(p.get('p') && PURPOSES.find(x=>x.id===p.get('p'))){ activePurpose=p.get('p'); lastPurpose=activePurpose; }
+  else { activePurpose=null; lastPurpose=null; }
   if(p.get('e') && ERAS[p.get('e')]) era=p.get('e');
   if(p.get('mw')) itMW=Math.max(5,Math.min(300,+p.get('mw')||50));
   if(p.get('c') && RANKED_SET.find(c=>c.n===p.get('c'))) selected=p.get('c');

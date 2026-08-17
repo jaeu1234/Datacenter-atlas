@@ -110,7 +110,9 @@ $('repShare').onclick=async ()=>{
 };
 $('searchInput').addEventListener('input',e=>runSearch(e.target.value));
 $('searchInput').addEventListener('blur',()=>setTimeout(()=>{
-  if(!$('searchResults').contains(document.activeElement)) $('searchResults').style.display='none';
+  if(!$('searchResults').contains(document.activeElement)){
+    $('searchResults').style.display='none'; setSearchExpanded(false);
+  }
 },180));
 $('searchInput').addEventListener('focus',e=>{ if(e.target.value.trim()) runSearch(e.target.value); });
 $('searchInput').addEventListener('keydown',searchKeyNav);

@@ -1896,6 +1896,7 @@ const SEARCH_INDEX = [
   ...SITES.map(s=>({label:`${s.co} ${s.pl}`, sub:s.ct, lat:s.lat, lng:s.lng, type:'site', id:s.id})),
 ];
 let searchHits=[], searchActiveIdx=-1;
+function setSearchExpanded(open){ $('searchInput').setAttribute('aria-expanded', open?'true':'false'); }
 function selectSearchHit(h){
   map.flyTo([h.lat,h.lng], Math.max(map.getZoom(), 4.5), {duration:0.8});
   if(h.type==='site') selectSite(h.id);
@@ -1905,7 +1906,7 @@ function selectSearchHit(h){
       addToCompare(h.n);
     }
   }
-  $('searchInput').value=''; $('searchResults').style.display='none';
+  $('searchInput').value=''; $('searchResults').style.display='none'; setSearchExpanded(false);
   $('searchInput').removeAttribute('aria-activedescendant');
   searchHits=[]; searchActiveIdx=-1;
 }
@@ -1929,13 +1930,13 @@ function searchKeyNav(e){
     highlightSearchActive();
   }else if(e.key==='ArrowUp'){
     e.preventDefault();
-    searchActiveIdx=(searchActiveIdx-1+searchHits.length)%searchHits.length;
+    searchActiveIdx = searchActiveIdx<=0 ? searchHits.length-1 : searchActiveIdx-1;
     highlightSearchActive();
   }else if(e.key==='Enter'){
     e.preventDefault();
     selectSearchHit(searchHits[searchActiveIdx>=0?searchActiveIdx:0]);
   }else if(e.key==='Escape'){
-    box.style.display='none';
+    box.style.display='none'; setSearchExpanded(false);
     $('searchInput').removeAttribute('aria-activedescendant');
     searchActiveIdx=-1;
   }
@@ -1944,14 +1945,14 @@ function runSearch(q){
   const box=$('searchResults');
   const term=q.trim().toLowerCase();
   searchActiveIdx=-1;
-  if(!term){ box.innerHTML=''; box.style.display='none'; searchHits=[]; return; }
+  if(!term){ box.innerHTML=''; box.style.display='none'; setSearchExpanded(false); searchHits=[]; return; }
   const hits=SEARCH_INDEX.filter(x=>
     x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)).slice(0,7);
   searchHits=hits;
-  if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; return; }
+  if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; setSearchExpanded(true); return; }
   box.innerHTML=hits.map((h,i)=>
     `<button type="button" class="sr" role="option" id="sr-item-${i}" data-i="${i}"><span class="sr-nm">${esc(h.label)}</span><span class="sr-sub">${esc(h.sub)}</span></button>`).join('');
-  box.style.display='block';
+  box.style.display='block'; setSearchExpanded(true);
   box.querySelectorAll('.sr').forEach(el=>el.onclick=()=>selectSearchHit(hits[+el.dataset.i]));
 }
 
@@ -2024,7 +2025,8 @@ function restoreFromURL(){
       const patch={}; FKEYS.forEach((k,i)=>patch[k]=v[i]); setWeights(patch);
     }
   }
-  if(p.get('p') && PURPOSES.find(x=>x.id===p.get('p'))) activePurpose=p.get('p'); else activePurpose=null;
+  if(p.get('p') && PURPOSES.find(x=>x.id===p.get('p'))){ activePurpose=p.get('p'); lastPurpose=activePurpose; }
+  else { activePurpose=null; lastPurpose=null; }
   if(p.get('e') && ERAS[p.get('e')]) era=p.get('e');
   if(p.get('mw')) itMW=Math.max(5,Math.min(300,+p.get('mw')||50));
   if(p.get('c') && RANKED_SET.find(c=>c.n===p.get('c'))) selected=p.get('c');
@@ -3300,7 +3302,9 @@ $('repShare').onclick=async ()=>{
 };
 $('searchInput').addEventListener('input',e=>runSearch(e.target.value));
 $('searchInput').addEventListener('blur',()=>setTimeout(()=>{
-  if(!$('searchResults').contains(document.activeElement)) $('searchResults').style.display='none';
+  if(!$('searchResults').contains(document.activeElement)){
+    $('searchResults').style.display='none'; setSearchExpanded(false);
+  }
 },180));
 $('searchInput').addEventListener('focus',e=>{ if(e.target.value.trim()) runSearch(e.target.value); });
 $('searchInput').addEventListener('keydown',searchKeyNav);
