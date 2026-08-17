@@ -231,19 +231,50 @@ let picked=['핀란드','싱가포르','캐나다'];
 function buildCompare(){
   const box=$('cmpPick');
   if(box && !box.dataset.init){
-    box.innerHTML=RANKED_SET.map(c=>`<button class="pchip" data-n="${c.n}" aria-pressed="false">${esc(c.n)}</button>`).join('');
+    // 70개국을 한 덩어리로 늘어놓으면 훑기 어려워, 지역별로 묶는다. RANKED_SET은
+    // 이미 점수순이라 그 순서대로 지역을 처음 만나는 순간 그룹을 여니, 지역이
+    // 등장하는 순서도 자연히 "그 지역에서 가장 순위가 높은 나라" 순이 된다.
+    const order=[], byRegion={};
+    RANKED_SET.forEach(c=>{
+      const r=c.region||'기타';
+      if(!byRegion[r]){ byRegion[r]=[]; order.push(r); }
+      byRegion[r].push(c);
+    });
+    box.innerHTML=`
+      <input type="text" id="cmpPickFilter" class="cmp-pick-filter" placeholder="국가 검색" aria-label="국가 목록 검색" autocomplete="off">
+      <div class="cmp-pick-groups" id="cmpPickGroups">${order.map(r=>`
+        <div class="pick-group" data-region="${esc(r)}">
+          <div class="pick-group-title">${esc(r)}</div>
+          <div class="pick-box">${byRegion[r].map(c=>
+            `<button class="pchip" data-n="${esc(c.n)}" aria-pressed="false">${esc(c.n)}</button>`).join('')}</div>
+        </div>`).join('')}</div>`;
     box.querySelectorAll('.pchip').forEach(b=>b.onclick=()=>{
       const n=b.dataset.n, i=picked.indexOf(n);
       if(i>=0){ if(picked.length>1) picked.splice(i,1); }
       else { if(picked.length>=5){ alert('최대 5개국까지 비교할 수 있습니다.'); return; } picked.push(n); }
       syncPick(); renderCompareTable();
     });
+    $('cmpPickFilter').addEventListener('input', filterCmpPick);
     box.dataset.init='1';
     // 좁은 화면에서는 국가 목록이 화면을 다 채워 차트가 한참 아래로 밀리므로 기본은 접어 둔다.
     const details=$('cmpPickerDetails');
     if(details && window.innerWidth<=820) details.removeAttribute('open');
   }
   syncPick(); renderCompareTable();
+}
+// 국가 검색 — 이름에 검색어가 없는 칩을 숨기고, 그 지역에 남은 칩이 하나도
+// 없으면 지역 제목까지 함께 숨긴다.
+function filterCmpPick(){
+  const term=$('cmpPickFilter').value.trim().toLowerCase();
+  $('cmpPickGroups').querySelectorAll('.pick-group').forEach(g=>{
+    let any=false;
+    g.querySelectorAll('.pchip').forEach(b=>{
+      const match=!term || b.dataset.n.toLowerCase().includes(term);
+      b.style.display=match?'':'none';
+      if(match) any=true;
+    });
+    g.style.display=any?'':'none';
+  });
 }
 // 헤더 검색으로 국가를 고르는 등, 국가칩을 직접 누르지 않고도 비교 목록에
 // 더할 때 쓰는 공용 진입점. pchip 클릭 핸들러와 같은 규칙(최대 5개)을 따른다.

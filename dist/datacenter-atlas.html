@@ -293,6 +293,15 @@ padding:8px 0;user-select:none;}
 transition:transform .15s;}
 .cmp-picker[open]>summary::before{transform:rotate(90deg);}
 .cmp-picker>summary .hint{color:var(--dim);font-size:var(--fs-1);margin-left:2px;}
+.cmp-pick-filter{width:100%;border:1px solid var(--line);border-radius:6px;
+padding:8px 12px;font-size:var(--fs-3);font-family:inherit;color:var(--ink);
+background:rgba(133,178,224,0.08);outline:none;margin-top:10px;transition:border-color .16s,background .16s;}
+.cmp-pick-filter:focus{border-color:var(--accent);background:rgba(133,178,224,0.14);}
+.cmp-pick-filter::placeholder{color:var(--dim);}
+.cmp-pick-groups{margin-top:4px;}
+.pick-group{margin-top:14px;}
+.pick-group-title{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-1);letter-spacing:0.12em;
+text-transform:uppercase;color:var(--dim);margin-bottom:6px;}
 .pick-box{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .pchip{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);border-radius:999px;
 padding:6px 12px;font-size:var(--fs-3);cursor:pointer;font-family:inherit;transition:all .15s;}
@@ -2783,18 +2792,44 @@ let picked=['핀란드','싱가포르','캐나다'];
 function buildCompare(){
   const box=$('cmpPick');
   if(box && !box.dataset.init){
-    box.innerHTML=RANKED_SET.map(c=>`<button class="pchip" data-n="${c.n}" aria-pressed="false">${esc(c.n)}</button>`).join('');
+    const order=[], byRegion={};
+    RANKED_SET.forEach(c=>{
+      const r=c.region||'기타';
+      if(!byRegion[r]){ byRegion[r]=[]; order.push(r); }
+      byRegion[r].push(c);
+    });
+    box.innerHTML=`
+      <input type="text" id="cmpPickFilter" class="cmp-pick-filter" placeholder="국가 검색" aria-label="국가 목록 검색" autocomplete="off">
+      <div class="cmp-pick-groups" id="cmpPickGroups">${order.map(r=>`
+        <div class="pick-group" data-region="${esc(r)}">
+          <div class="pick-group-title">${esc(r)}</div>
+          <div class="pick-box">${byRegion[r].map(c=>
+            `<button class="pchip" data-n="${esc(c.n)}" aria-pressed="false">${esc(c.n)}</button>`).join('')}</div>
+        </div>`).join('')}</div>`;
     box.querySelectorAll('.pchip').forEach(b=>b.onclick=()=>{
       const n=b.dataset.n, i=picked.indexOf(n);
       if(i>=0){ if(picked.length>1) picked.splice(i,1); }
       else { if(picked.length>=5){ alert('최대 5개국까지 비교할 수 있습니다.'); return; } picked.push(n); }
       syncPick(); renderCompareTable();
     });
+    $('cmpPickFilter').addEventListener('input', filterCmpPick);
     box.dataset.init='1';
     const details=$('cmpPickerDetails');
     if(details && window.innerWidth<=820) details.removeAttribute('open');
   }
   syncPick(); renderCompareTable();
+}
+function filterCmpPick(){
+  const term=$('cmpPickFilter').value.trim().toLowerCase();
+  $('cmpPickGroups').querySelectorAll('.pick-group').forEach(g=>{
+    let any=false;
+    g.querySelectorAll('.pchip').forEach(b=>{
+      const match=!term || b.dataset.n.toLowerCase().includes(term);
+      b.style.display=match?'':'none';
+      if(match) any=true;
+    });
+    g.style.display=any?'':'none';
+  });
 }
 function addToCompare(name){
   if(picked.includes(name)) return;

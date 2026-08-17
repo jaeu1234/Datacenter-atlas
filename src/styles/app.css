@@ -320,6 +320,15 @@ td .n{font-family:'IBM Plex Mono',monospace;}
   transition:transform .15s;}
 .cmp-picker[open]>summary::before{transform:rotate(90deg);}
 .cmp-picker>summary .hint{color:var(--dim);font-size:var(--fs-1);margin-left:2px;}
+.cmp-pick-filter{width:100%;border:1px solid var(--line);border-radius:6px;
+  padding:8px 12px;font-size:var(--fs-3);font-family:inherit;color:var(--ink);
+  background:rgba(133,178,224,0.08);outline:none;margin-top:10px;transition:border-color .16s,background .16s;}
+.cmp-pick-filter:focus{border-color:var(--accent);background:rgba(133,178,224,0.14);}
+.cmp-pick-filter::placeholder{color:var(--dim);}
+.cmp-pick-groups{margin-top:4px;}
+.pick-group{margin-top:14px;}
+.pick-group-title{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-1);letter-spacing:0.12em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:6px;}
 .pick-box{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .pchip{border:1px solid var(--line);background:var(--bg-2);color:var(--muted);border-radius:999px;
   padding:6px 12px;font-size:var(--fs-3);cursor:pointer;font-family:inherit;transition:all .15s;}
