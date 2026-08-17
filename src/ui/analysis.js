@@ -11,7 +11,7 @@ function renderChips(){
     `<button class="chip ${p.id===activePurpose?'on':''}" data-p="${p.id}" aria-pressed="${p.id===activePurpose}">${p.name}</button>`).join('');
   $('chips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
     const before=ranked().map(c=>c.n);
-    activePurpose=b.dataset.p;
+    activePurpose=b.dataset.p; lastPurpose=activePurpose;
     setWeights(PURPOSES.find(p=>p.id===activePurpose).w);
     lastShift=shift(before,ranked().map(c=>c.n));
     renderChips(); syncWeights();
@@ -85,8 +85,13 @@ function renderImpact(){
   let sh='';
   if(lastShift) sh=` 방금 조정으로 <span class="up">${lastShift.up.n} ▲${lastShift.up.d}</span>,
     <span class="down">${lastShift.down.n} ▼${Math.abs(lastShift.down.d)}</span> 순위가 움직였습니다.`;
+  // 슬라이더를 만지면 프리셋 선택이 바로 풀리는데, 되돌아가는 방법을 안 알려주면
+  // "직접 조절" 상태에서 못 빠져나오는 사람이 생긴다.
+  const back = activePurpose===null && lastPurpose
+    ? ` <b style="color:var(--dim)">${PURPOSES.find(p=>p.id===lastPurpose)?.name}</b> 프리셋과는 달라졌습니다 — 그 값으로 되돌리려면 위에서 같은 칩을 다시 누르세요.`
+    : '';
   elImpact.innerHTML=`현재 <b>${top.label}</b>이 총점의 <b>${share}%</b>를 차지해 가장 크게 작용합니다. ${top.up}${sh}
-    지도 탭의 <b>종합 적합도</b> 색상도 이 가중치를 따릅니다.`;
+    지도 탭의 <b>종합 적합도</b> 색상도 이 가중치를 따릅니다.${back}`;
 }
 
 /* ---- 순위: 행을 재생성하지 않고 순서와 값만 갱신 ---- */

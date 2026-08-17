@@ -579,30 +579,70 @@ const SEARCH_INDEX = [
   ...RANKED_SET.map(c=>({label:c.n, sub:c.region||'국가', lat:c.lat, lng:c.lng, type:'country', n:c.n})),
   ...SITES.map(s=>({label:`${s.co} ${s.pl}`, sub:s.ct, lat:s.lat, lng:s.lng, type:'site', id:s.id})),
 ];
+// 화살표 키 탐색·Enter 선택을 지원하려면 지금 보여준 결과 목록과 그중 몇 번째가
+// 골라져 있는지를 runSearch 밖(키보드 핸들러)에서도 알아야 한다.
+let searchHits=[], searchActiveIdx=-1;
+function selectSearchHit(h){
+  map.flyTo([h.lat,h.lng], Math.max(map.getZoom(), 4.5), {duration:0.8});
+  if(h.type==='site') selectSite(h.id);
+  else {
+    selected=h.n; invalidateRank(); updateRankList(); buildDetail(); showCountryCard(h.n, {lat:h.lat,lng:h.lng});
+    // 비교 탭에 있을 때는 검색창만 비워지고 화면엔 아무 변화가 없어 보이므로,
+    // 검색으로 고른 국가를 비교 목록에도 더한다.
+    if(document.getElementById('comparePane')?.classList.contains('on') && typeof addToCompare==='function'){
+      addToCompare(h.n);
+    }
+  }
+  $('searchInput').value=''; $('searchResults').style.display='none';
+  $('searchInput').removeAttribute('aria-activedescendant');
+  searchHits=[]; searchActiveIdx=-1;
+}
+function highlightSearchActive(){
+  const box=$('searchResults');
+  box.querySelectorAll('.sr').forEach((el,i)=>{
+    const on=i===searchActiveIdx;
+    el.classList.toggle('active', on);
+    el.setAttribute('aria-selected', on);
+  });
+  const activeEl = searchActiveIdx>=0 ? box.querySelector(`#sr-item-${searchActiveIdx}`) : null;
+  if(activeEl){ $('searchInput').setAttribute('aria-activedescendant', activeEl.id); activeEl.scrollIntoView({block:'nearest'}); }
+  else $('searchInput').removeAttribute('aria-activedescendant');
+}
+// ArrowDown/ArrowUp/Enter 로 검색 결과를 훑을 수 있게 한다 — role="combobox" 로
+// 선언해 놓고 마우스로만 고를 수 있으면 스크린리더 사용자에게 오히려 혼란을 준다.
+function searchKeyNav(e){
+  const box=$('searchResults');
+  if(box.style.display==='none' || !searchHits.length) return;
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    searchActiveIdx=(searchActiveIdx+1)%searchHits.length;
+    highlightSearchActive();
+  }else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    searchActiveIdx=(searchActiveIdx-1+searchHits.length)%searchHits.length;
+    highlightSearchActive();
+  }else if(e.key==='Enter'){
+    e.preventDefault();
+    selectSearchHit(searchHits[searchActiveIdx>=0?searchActiveIdx:0]);
+  }else if(e.key==='Escape'){
+    box.style.display='none';
+    $('searchInput').removeAttribute('aria-activedescendant');
+    searchActiveIdx=-1;
+  }
+}
 function runSearch(q){
   const box=$('searchResults');
   const term=q.trim().toLowerCase();
-  if(!term){ box.innerHTML=''; box.style.display='none'; return; }
+  searchActiveIdx=-1;
+  if(!term){ box.innerHTML=''; box.style.display='none'; searchHits=[]; return; }
   const hits=SEARCH_INDEX.filter(x=>
     x.label.toLowerCase().includes(term) || (x.sub||'').toLowerCase().includes(term)).slice(0,7);
+  searchHits=hits;
   if(!hits.length){ box.innerHTML='<div class="sr-empty">검색 결과가 없습니다</div>'; box.style.display='block'; return; }
   box.innerHTML=hits.map((h,i)=>
-    `<button type="button" class="sr" role="option" data-i="${i}"><span class="sr-nm">${esc(h.label)}</span><span class="sr-sub">${esc(h.sub)}</span></button>`).join('');
+    `<button type="button" class="sr" role="option" id="sr-item-${i}" data-i="${i}"><span class="sr-nm">${esc(h.label)}</span><span class="sr-sub">${esc(h.sub)}</span></button>`).join('');
   box.style.display='block';
-  box.querySelectorAll('.sr').forEach(el=>el.onclick=()=>{
-    const h=hits[+el.dataset.i];
-    map.flyTo([h.lat,h.lng], Math.max(map.getZoom(), 4.5), {duration:0.8});
-    if(h.type==='site') selectSite(h.id);
-    else {
-      selected=h.n; invalidateRank(); updateRankList(); buildDetail(); showCountryCard(h.n, {lat:h.lat,lng:h.lng});
-      // 비교 탭에 있을 때는 검색창만 비워지고 화면엔 아무 변화가 없어 보이므로,
-      // 검색으로 고른 국가를 비교 목록에도 더한다.
-      if(document.getElementById('comparePane')?.classList.contains('on') && typeof addToCompare==='function'){
-        addToCompare(h.n);
-      }
-    }
-    $('searchInput').value=''; box.style.display='none';
-  });
+  box.querySelectorAll('.sr').forEach(el=>el.onclick=()=>selectSearchHit(hits[+el.dataset.i]));
 }
 
 /* ---- 지도에서 국가를 누르면 국가 카드 ---- */

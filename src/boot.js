@@ -81,8 +81,15 @@ const store={
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
 };
-if(store.get('atlas.banner')==='closed') $('dataBanner').style.display='none';
-$('nbClose').onclick=()=>{ $('dataBanner').style.display='none'; store.set('atlas.banner','closed'); };
+if(store.get('atlas.banner')==='closed'){ $('dataBanner').style.display='none'; $('nbReopen').style.display='block'; }
+$('nbClose').onclick=()=>{
+  $('dataBanner').style.display='none'; $('nbReopen').style.display='block';
+  store.set('atlas.banner','closed');
+};
+$('nbReopen').onclick=()=>{
+  $('dataBanner').style.display='flex'; $('nbReopen').style.display='none';
+  store.set('atlas.banner','open');
+};
 
 $('repPreview').onclick=previewReport;
 $('repDownload').onclick=downloadReport;
@@ -106,6 +113,7 @@ $('searchInput').addEventListener('blur',()=>setTimeout(()=>{
   if(!$('searchResults').contains(document.activeElement)) $('searchResults').style.display='none';
 },180));
 $('searchInput').addEventListener('focus',e=>{ if(e.target.value.trim()) runSearch(e.target.value); });
+$('searchInput').addEventListener('keydown',searchKeyNav);
 renderBreakdown(); renderSimulator();
 setupAccordion(); updateMarkerScale(); renderCorr(); renderDataPanel(); renderSiteFilter();
 

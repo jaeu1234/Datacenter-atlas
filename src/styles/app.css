@@ -349,7 +349,8 @@ td .n{font-family:'IBM Plex Mono',monospace;}
   padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;
   align-items:baseline;border-bottom:1px solid rgba(133,178,224,0.1);}
 .sr:last-child{border-bottom:none;}
-.sr:hover{background:rgba(133,178,224,0.09);}
+.sr:hover,.sr.active{background:rgba(133,178,224,0.09);}
+.sr.active{box-shadow:inset 2px 0 var(--accent);}
 .sr-nm{font-size:var(--fs-3);color:var(--ink);font-weight:500;}
 .sr-sub{font-size:var(--fs-1);color:var(--dim);}
 .sr-empty{padding:10px 12px;font-size:var(--fs-3);color:var(--dim);}
@@ -395,6 +396,12 @@ td .n{font-family:'IBM Plex Mono',monospace;}
 .nb-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:var(--fs-5);
   padding:0 4px;flex-shrink:0;}
 .nb-close:hover{color:var(--ink);}
+/* 배너를 닫아도 완전히 사라지지 않고, 다시 열 수 있는 작은 탭으로 남는다 —
+   실측/배정값 구분처럼 나중에 다시 찾아볼 수 있는 정보라 완전히 없애면 못 찾는다. */
+.nb-reopen{display:none;flex-shrink:0;align-self:flex-start;margin:6px 0 0 18px;
+  background:rgba(224,166,63,0.13);border:1px solid rgba(224,166,63,0.3);color:var(--mid);
+  border-radius:999px;padding:4px 11px;font-size:var(--fs-2);cursor:pointer;font-family:inherit;}
+.nb-reopen:hover{color:var(--ink);border-color:var(--mid);}
 
 /* ---------- 기본/고급 모드 ---------- */
 .mode-toggle{display:flex;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;}

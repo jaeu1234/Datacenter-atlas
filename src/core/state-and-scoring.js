@@ -3,6 +3,7 @@
    여기 있는 값이 바뀌면 순위 캐시(invalidateRank)를 반드시 무효화할 것. */
 let weights      = {...PURPOSES[0].w};  // 항목별 가중치 (%)
 let activePurpose= 'balanced';          // 선택된 목적 프리셋 (직접 조정 시 null)
+let lastPurpose  = 'balanced';          // 슬라이더로 프리셋에서 벗어난 뒤에도 "되돌아갈 곳"을 기억해 둔다
 let selected     = null;                // 분석 탭에서 선택된 국가명
 let lastShift    = null;                // 직전 조정으로 인한 순위 변동 요약
 let era          = 'now';               // 기후 시나리오: now | e35 | e50 | e80 | e100
